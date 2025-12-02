@@ -20,4 +20,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  color: var(--ifm-color-secondary);
+}
+
+.secondaryCta {
+  background: transparent;
+  color: var(--ifm-color-primary);
+  border: 1px solid var(--ifm-color-primary);
+}
+
+.secondaryCta:hover {
+  color: var(--ifm-color-primary-darkest);
+  border-color: var(--ifm-color-primary-darkest);
 }
