@@ -51,6 +51,14 @@ const sidebars = {
         'operations/acknowledgements',
       ],
     },
+    {
+      type: 'category',
+      label: 'Publications',
+      items: [
+        'publications/contributors',
+        'publications/publications',
+      ],
+    },
   ],
 };
 
