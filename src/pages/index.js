@@ -6,8 +6,8 @@ import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import styles from './index.module.css';
 
-const DOCS_CTA = '/docs/intro';
-const GITHUB_CTA = 'https://github.com/flowlog-rs/flowlog';
+const DOCS_CTA = '/tutorial/intro';
+const GITHUB_CTA = 'https://github.com/flowlog-rs/FlowLog-VLDB';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();

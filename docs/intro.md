@@ -1,47 +1,25 @@
 ---
-sidebar_position: 1
+sidebar_position: 0
+sidebar_label: Welcome
+title: Welcome to FlowLog
 ---
 
-# Tutorial Intro
+<p align="center">
+  <img src="/img/flowlog.png" alt="FlowLog Logo" width="420" />
+</p>
 
-Let's discover **Docusaurus in less than 5 minutes**.
+FlowLog is a composable Datalog-to-Rust pipeline for building scalable Differential Dataflow programs. Use this tutorial to move from environment setup through language internals.
 
-## Getting Started
+## Start Here
 
-Get started by **creating a new site**.
+1. [Set up the environment](getting-started/environment) and [build the workspace](getting-started/build).
+2. Review the [architecture](getting-started/architecture) and [generator CLI](getting-started/generator-cli).
+3. Walk through the [end-to-end example](tutorial/end-to-end) and [regression harness](tutorial/regression-harness).
+4. Dive into the [language overview](language/overview) and [current limitations](language/limitations).
 
-Or **try Docusaurus immediately** with **[docusaurus.new](https://docusaurus.new)**.
+## Resources
 
-### What you'll need
-
-- [Node.js](https://nodejs.org/en/download/) version 16.14 or above:
-  - When installing Node.js, you are recommended to check all checkboxes related to dependencies.
-
-## Generate a new site
-
-Generate a new Docusaurus site using the **classic template**.
-
-The classic template will automatically be added to your project after you run the command:
-
-```bash
-npm init docusaurus@latest my-website classic
-```
-
-You can type this command into Command Prompt, Powershell, Terminal, or any other integrated terminal of your code editor.
-
-The command also installs all necessary dependencies you need to run Docusaurus.
-
-## Start your site
-
-Run the development server:
-
-```bash
-cd my-website
-npm run start
-```
-
-The `cd` command changes the directory you're working with. In order to work with your newly created Docusaurus site, you'll need to navigate the terminal there.
-
-The `npm run start` command builds your website locally and serves it through a development server, ready for you to view at http://localhost:3000/.
-
-Open `docs/intro.md` (this page) and edit some lines: the site **reloads automatically** and displays your changes.
+- [FlowLog Paper (arXiv 2511.00865)](https://arxiv.org/pdf/2511.00865)
+- [Contributing guide](operations/contributing)
+- [Acknowledgements](operations/acknowledgements)
+FlowLog accepts a Soufflé-compatible Datalog dialect with modules for recursion, negation, arithmetic, and aggregations.

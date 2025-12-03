@@ -10,6 +10,7 @@ const config = {
   tagline: 'A Rust-based Flow Log Analyzer',
   url: 'https://flowlog-rs.github.io',
   baseUrl: '/',
+  deploymentBranch: 'gh-pages',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/flowlog.png',
@@ -34,6 +35,7 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
+          routeBasePath: 'tutorial',
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
@@ -53,6 +55,20 @@ const config = {
     ],
   ],
 
+  plugins: [
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'developers',
+        path: 'developers',
+        routeBasePath: 'developers',
+        sidebarPath: require.resolve('./sidebarsDevelopers.js'),
+        editUrl:
+          'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+      },
+    ],
+  ],
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
@@ -67,11 +83,18 @@ const config = {
             type: 'doc',
             docId: 'intro',
             position: 'left',
-            label: 'Docs',
+            label: 'Tutorial',
+          },
+          {
+            type: 'doc',
+            docsPluginId: 'developers',
+            docId: 'intro',
+            position: 'left',
+            label: 'Developers',
           },
           {to: '/blog', label: 'Blog', position: 'left'},
           {
-            href: 'https://github.com/facebook/docusaurus',
+            href: 'https://github.com/flowlog-rs/FlowLog-VLDB',
             label: 'GitHub',
             position: 'right',
           },
@@ -81,33 +104,40 @@ const config = {
         style: 'dark',
         links: [
           {
+            title: 'FlowLog',
+            items: [
+              {
+                html: `
+                  <div class="footer__brand">
+                  <p class="footer__description">
+                    Flow-aware observability and documentation in one place. Learn the platform,
+                    explore demo flows, and extend the stack with confidence.
+                  </p>
+                  <div class="footer__cta">
+                    <a class="footer__button" href="https://github.com/flowlog-rs/FlowLog-VLDB" target="_blank" rel="noopener noreferrer">
+                      Star FlowLog on GitHub
+                    </a>
+                  </div>
+                  </div>
+                `,
+              },
+            ],
+          },
+          {
             title: 'Docs',
             items: [
               {
-                label: 'Docs',
-                to: '/docs/intro',
+                label: 'Tutorial',
+                to: '/tutorial/intro',
+              },
+              {
+                label: 'Developers',
+                to: '/developers/intro',
               },
             ],
           },
           {
-            title: 'Community',
-            items: [
-              {
-                label: 'Stack Overflow',
-                href: 'https://stackoverflow.com/questions/tagged/docusaurus',
-              },
-              {
-                label: 'Discord',
-                href: 'https://discordapp.com/invite/docusaurus',
-              },
-              {
-                label: 'Twitter',
-                href: 'https://twitter.com/docusaurus',
-              },
-            ],
-          },
-          {
-            title: 'More',
+            title: 'Resources',
             items: [
               {
                 label: 'Blog',
@@ -115,12 +145,12 @@ const config = {
               },
               {
                 label: 'GitHub',
-                href: 'https://github.com/facebook/docusaurus',
+                href: 'https://github.com/flowlog-rs/FlowLog-VLDB',
               },
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} FlowLog.`,
       },
       prism: {
         theme: lightCodeTheme,
