@@ -20,10 +20,10 @@ const sidebars = {
       label: 'Getting Started',
       collapsible: true,
       items: [
-        'getting-started/environment',
-        'getting-started/build',
-        'getting-started/architecture',
-        'getting-started/generator-cli',
+        'getting-started/install-flowlog',
+        'getting-started/simple-example',
+        'getting-started/run-flowlog',
+        'getting-started/examples',
       ],
     },
     {
