@@ -45,8 +45,7 @@ Reach
 We can compile this program by running
 
 ```bash
-$ flowlog examples/example.dl -F . -o example_flowlog -D .
-
+$ flowlog examples/example.dl -o example_flowlog -F . -D .
 ```
 We get an `example_flowlog` rust crate, note that no `reach.csv` has been produced, as the program has not yet been evaluated.
 
@@ -55,18 +54,14 @@ The `-F` and `-D` options specify the directories for input and output files res
 If instead `Source.csv` and `Arc.csv` were in a subdirectory called `input`, and we wanted to have `Reach.csv` in a subdirectory called `output`, we could do
 
 ```bash
-$ flowlog examples/example.dl -F ./input -o example_flowlog -D ./output
-```
-
-We enter the generated rust crates,
-
-```bash
-$ cd example_flowlog
+$ flowlog examples/example.dl -o example_flowlog -F ./input -D ./output
 ```
 
 To evaluate our program, we have to run the compiled rust crate
 
 ```bash
+# Enter generated rust crate 
+$ cd example_flowlog
 $ cargo run --release -- -w 4
 ```
 
