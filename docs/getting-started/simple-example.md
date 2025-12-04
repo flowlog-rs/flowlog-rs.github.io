@@ -61,7 +61,7 @@ $ flowlog examples/example.dl -F ./input -o example_flowlog -D ./output
 We enter the generated rust crates,
 
 ```bash
-$ cd ../example_flowlog
+$ cd example_flowlog
 ```
 
 To evaluate our program, we have to run the compiled rust crate
