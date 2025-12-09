@@ -39,17 +39,6 @@
   line-height: 1.6;
 }
 
-.footer__cta {
-  display: inline-flex;
-}
-
-.footer__button {
-  padding: 0.5rem 1.25rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: var(--ifm-footer-link-color);
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
 .footer__title {
   font-size: 1.1rem;
   letter-spacing: 0.02em;
@@ -57,10 +46,4 @@
 
 .footer__items {
   font-size: 0.9rem;
-}
-
-.footer__button:hover {
-  text-decoration: none;
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.8);
 }

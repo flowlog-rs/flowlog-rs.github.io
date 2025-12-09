@@ -3,27 +3,63 @@ sidebar_position: 3
 title: Run FlowLog
 ---
 
-Use the generator to lower FlowLog programs into Timely/Differential binaries.
+FlowLog is a compiler for executing Datalog programs. The execution mode (batch, incremental etc.) is determined by the argument parameters of the FlowLog command.
 
-```bash
-cargo run -p generator -- path/to/program.dl -F facts/ -o demo-app
-cd ../demo-app
-cargo run --release
+## Input/Output
+
+FlowLog supports file-based I/O so you can separate Datalog programs from their data. Input files correspond to the extensional database (**EDB**) while Output files correspond to the intensional database (**IDB**) in Datalog terminology.
+
+### Input relations
+A relation becomes an `input` relation when you add .input to its declaration:
+
+```FlowLog
+.decl my_relation(a:number, b:number)
+.input my_relation
 ```
 
-### CLI flags
+By default, FlowLog searches for input facts in the directory specified by `-F <fact-dir>`. If `-F` is not provided, it assumes the fact files are in the current directory. The default filename is `<relation_name>.csv`, so the example above expects `my_relation.csv` in either the current directory or `<fact-dir>`.
 
-| Flag | Description | Required | Notes |
-| --- | --- | --- | --- |
-| `PROGRAM` | Path to a `.dl` file. Accepts `all`/`--all` to iterate over every program in `examples/`. | Yes | Paths are workspace-relative unless absolute. |
-| `-F, --fact-dir <DIR>` | Directory containing CSV facts referenced via `.input`. | When using relative `.input` paths | Prepends `<DIR>` to every `filename=` entry. |
-| `-o, --output <NAME>` | Override the generated Cargo package name. | No | Defaults to `<PROGRAM>` stem and writes beside the repo. |
-| `-D, --output-dir <DIR>` | Destination for `.output` relations. | When `.output` is present | Pass `-` to stream tuples to stderr. |
-| `--mode <MODE>` | Execution semantics: `batch` (default) or `incremental`. | No | Incremental uses signed diffs to enable live updates. |
+If you need precise control over the file location, specify a filename directly:
 
-### Run modes
+```FlowLog
+.decl my_relation(a:number, b:number)
+.input my_relation(filename="<path to input file>")
+```
 
-- **Batch**: easiest for single-shot analyses. Generated binaries ingest all facts, compute a fixpoint, and exit.
-- **Incremental**: keeps Timely workers alive and applies changes as new facts arrive. Use this for continuous telemetry pipelines.
+### Output relations
 
-If you change the FlowLog program, rerun the generator to refresh the Cargo workspace, then rebuild with `cargo run --release`.
+You can mark relations for output with `.output`:
+
+```FlowLog
+.decl result(a:number, b:number, c:number)
+.output result
+```
+
+If no command-line flags or in-program directives override it, FlowLog writes output to the current directory. You can set a default output directory with `-D <output-dir>`, or write to standard output with `-D -`. With default naming, the example above is written to `result.csv` in the chosen output directory.
+
+**Notice that when there is more than one `.output`, the output order is not deterministic.**
+
+As with input, you can specify a custom output file:
+
+```FlowLog
+.decl result(a:number, b:number, c:number)
+.output result(filename="<path to output file>")
+```
+
+### Delimiters, compression, and multiple directives
+
+Both input and output support a custom `delimiter` and can choose whether the data is compressed. For example:
+
+```FlowLog
+.decl result(a:number, b:number, c:number)
+.output result(filename="<path to output file>", delimiter="|", compress=true)
+```
+
+This writes columns separated by `|` and compresses the output using gzip. You may provide multiple `.input` and `.output` directives to read from or write to multiple locations.
+
+### Printing relation sizes
+If you use `.printsize`, FlowLog prints the number of tuples of a relation to standard output instead of writing the relation to a file:
+```FlowLog
+.decl result(a:number, b:number, c:number)
+.printsize
+```

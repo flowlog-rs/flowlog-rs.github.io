@@ -100,14 +100,8 @@ const config = {
                 html: `
                   <div class="footer__brand">
                   <p class="footer__description">
-                    Flow-aware observability and documentation in one place. Learn the platform,
-                    explore demo flows, and extend the stack with confidence.
+                    An efficient, extensible, and scalable Datalog engine.
                   </p>
-                  <div class="footer__cta">
-                    <a class="footer__button" href="https://github.com/flowlog-rs/FlowLog-VLDB" target="_blank" rel="noopener noreferrer">
-                      Star FlowLog on GitHub
-                    </a>
-                  </div>
                   </div>
                 `,
               },
