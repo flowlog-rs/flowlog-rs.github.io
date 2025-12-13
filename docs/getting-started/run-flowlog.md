@@ -10,7 +10,7 @@ FlowLog is a compiler for executing Datalog programs. The execution mode (batch,
 FlowLog supports file-based I/O so you can separate Datalog programs from their data. Input files correspond to the extensional database (**EDB**) while Output files correspond to the intensional database (**IDB**) in Datalog terminology.
 
 ### Input relations
-A relation becomes an `input` relation when you add .input to its declaration:
+A relation becomes an input relation when you add `.input` to its declaration:
 
 ```FlowLog
 .decl my_relation(a:number, b:number)
@@ -37,8 +37,6 @@ You can mark relations for output with `.output`:
 
 If no command-line flags or in-program directives override it, FlowLog writes output to the current directory. You can set a default output directory with `-D <output-dir>`, or write to standard output with `-D -`. With default naming, the example above is written to `result.csv` in the chosen output directory.
 
-**Notice that when there is more than one `.output`, the output order is not deterministic.**
-
 As with input, you can specify a custom output file:
 
 ```FlowLog
@@ -46,7 +44,7 @@ As with input, you can specify a custom output file:
 .output result(filename="<path to output file>")
 ```
 
-### Delimiters, compression, and multiple directives
+### Delimiters, compression
 
 Both input and output support a custom `delimiter` and can choose whether the data is compressed. For example:
 
@@ -55,7 +53,7 @@ Both input and output support a custom `delimiter` and can choose whether the da
 .output result(filename="<path to output file>", delimiter="|", compress=true)
 ```
 
-This writes columns separated by `|` and compresses the output using gzip. You may provide multiple `.input` and `.output` directives to read from or write to multiple locations.
+This writes columns separated by `|` and compresses the output using gzip (TODO: unsupported feature). 
 
 ### Printing relation sizes
 If you use `.printsize`, FlowLog prints the number of tuples of a relation to standard output instead of writing the relation to a file:
