@@ -20,7 +20,7 @@ const KEY_FEATURES = [
     ),
   },
   {
-    title: 'Robustness-first',
+    title: 'Robustness First',
     description:
       'Configure worst-case optimal query plans against runtime data skew.',
   },
@@ -40,14 +40,8 @@ const KEY_FEATURES = [
   },
   {
     title: 'Outlook',
-    description: 'Many novel optimization opportunities left on the table.',
+    description: 'Many optimization opportunities left on the table.',
   },
-];
-
-const HERO_STATS = [
-  { value: '10x', label: 'Faster incremental refreshes' },
-  { value: '15+', label: 'Benchmarks maintained' },
-  { value: '5', label: 'Active research collaborations' },
 ];
 
 const PUBLICATIONS = [
@@ -133,15 +127,6 @@ export default function Home() {
               </a>
             </div>
           </div>
-        </section>
-
-        <section className={styles.heroStats} aria-label="FlowLog highlights">
-          {HERO_STATS.map(stat => (
-            <div className={styles.statCard} key={stat.label}>
-              <span className={styles.statValue}>{stat.value}</span>
-              <span className={styles.statLabel}>{stat.label}</span>
-            </div>
-          ))}
         </section>
 
         <section className={styles.contentWrapper}>
