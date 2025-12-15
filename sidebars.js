@@ -43,14 +43,6 @@ const sidebars = {
         'language/background',
       ],
     },
-    {
-      type: 'category',
-      label: 'Operations',
-      items: [
-        'operations/contributing',
-        'operations/acknowledgements',
-      ],
-    },
     // {
     //   type: 'category',
     //   label: 'Publications',
