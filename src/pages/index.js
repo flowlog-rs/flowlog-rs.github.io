@@ -22,15 +22,12 @@ const KEY_FEATURES = [
   {
     title: 'Robustness-first',
     description:
-      'Configure worst-case optimal query plans against data skew at runtime.',
+      'Configure worst-case optimal query plans against runtime data skew.',
   },
   {
     title: 'Dual Modes',
     description: 'Optimize under both batch and incremental execution modes.',
   },
-];
-
-const PERFORMANCE_HIGHLIGHTS = [
   {
     title: 'Efficiency',
     description:
@@ -160,7 +157,7 @@ export default function Home() {
             now.
           </div>
 
-          <h2 className={styles.sectionHeader} id="about">
+          <h2 id="about">
             Key Features
           </h2>
           <div className={styles.featuresGrid}>
@@ -172,17 +169,7 @@ export default function Home() {
             ))}
           </div>
 
-          <h2 className={styles.sectionHeader}>Performance</h2>
-          <div className={styles.featuresGrid}>
-            {PERFORMANCE_HIGHLIGHTS.map(feature => (
-              <div className={styles.featureBox} key={feature.title}>
-                <h3>{feature.title}</h3>
-                <p>{feature.description}</p>
-              </div>
-            ))}
-          </div>
-
-          <h2 className={styles.sectionHeader}>Publications</h2>
+          <h2>Publications</h2>
           <div className={styles.publicationsGrid}>
             {PUBLICATIONS.map(pub => (
               <article className={styles.publicationCard} key={pub.title}>
@@ -216,7 +203,7 @@ export default function Home() {
             </div>
           </div>
 
-          <h2 className={styles.sectionHeader}>Getting Involved</h2>
+          <h2>Getting Involved</h2>
           <div className={styles.gettingInvolved}>
             <p>
               FlowLog is open-source on GitHub{' '}
