@@ -37,9 +37,9 @@ const config = {
           sidebarPath: require.resolve('./sidebars.js'),
           routeBasePath: 'tutorial',
         },
-        blog: {
-          showReadingTime: true,
-        },
+        // blog: {
+        //   showReadingTime: true,
+        // },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
@@ -75,14 +75,14 @@ const config = {
             position: 'left',
             label: 'Tutorial',
           },
-          {
-            type: 'doc',
-            docsPluginId: 'developers',
-            docId: 'intro',
-            position: 'left',
-            label: 'Developers',
-          },
-          {to: '/blog', label: 'Blog', position: 'left'},
+          // {
+          //   type: 'doc',
+          //   docsPluginId: 'developers',
+          //   docId: 'intro',
+          //   position: 'left',
+          //   label: 'Developers',
+          // },
+          // {to: '/blog', label: 'Blog', position: 'left'},
           {
             href: 'https://github.com/flowlog-rs/FlowLog-VLDB',
             label: 'GitHub',
@@ -123,10 +123,10 @@ const config = {
           {
             title: 'Resources',
             items: [
-              {
-                label: 'Blog',
-                to: '/blog',
-              },
+              // {
+              //   label: 'Blog',
+              //   to: '/blog',
+              // },
               {
                 label: 'GitHub',
                 href: 'https://github.com/flowlog-rs/FlowLog-VLDB',
