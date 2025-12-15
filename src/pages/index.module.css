@@ -16,6 +16,13 @@
   --flowlog-repo-border: #b8d4e6;
   --flowlog-repo-hover-bg: #d0e7f5;
   --flowlog-repo-hover-border: #7fb3d5;
+  --flowlog-surface-muted: #f0f4f7;
+  --flowlog-hero-gradient: linear-gradient(135deg, #ffffff 0%, #f5fafc 40%, #fff7f0 100%);
+  --flowlog-button-primary-bg: #37bffe;
+  --flowlog-button-primary-text: #000000;
+  --flowlog-button-primary-shadow: rgba(14, 165, 233, 0.3);
+  --flowlog-button-secondary-border: rgba(30, 107, 163, 0.4);
+  --flowlog-button-secondary-text: #1e6ba3;
 }
 
 :global([data-theme='dark']) {
@@ -34,6 +41,13 @@
   --flowlog-repo-border: #31506e;
   --flowlog-repo-hover-bg: #25364b;
   --flowlog-repo-hover-border: #4c6f94;
+  --flowlog-surface-muted: #141a24;
+  --flowlog-hero-gradient: radial-gradient(circle at 20% 20%, #172131, #0d1117 70%);
+  --flowlog-button-primary-bg: #0891b2;
+  --flowlog-button-primary-text: #000000;
+  --flowlog-button-primary-shadow: rgba(8, 145, 178, 0.35);
+  --flowlog-button-secondary-border: rgba(141, 207, 255, 0.4);
+  --flowlog-button-secondary-text: #b6e3ff;
 }
 
 .flowlogPage {
@@ -42,6 +56,7 @@
   line-height: 1.5;
   color: var(--flowlog-text);
   background-color: var(--flowlog-bg);
+  background-image: var(--flowlog-hero-gradient);
   padding-bottom: 60px;
 }
 
@@ -86,6 +101,12 @@
   color: var(--flowlog-muted);
 }
 
+.heroSubhead {
+  margin-top: 15px;
+  font-size: 16px;
+  color: var(--flowlog-muted);
+}
+
 .heroAccentBlue {
   color: var(--flowlog-accent-blue);
 }
@@ -98,6 +119,78 @@
   max-width: 900px;
   margin: 0 auto;
   padding: 0 20px;
+}
+
+.heroActions {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease,
+    background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.primaryButton {
+  background: var(--flowlog-button-primary-bg);
+  color: var(--flowlog-button-primary-text);
+  border: none;
+  box-shadow: 0 16px 30px var(--flowlog-button-primary-shadow);
+}
+
+.secondaryButton {
+  border: 1px solid var(--flowlog-button-secondary-border);
+  color: var(--flowlog-button-secondary-text);
+  background-color: transparent;
+}
+
+.primaryButton:hover,
+.secondaryButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+}
+
+.heroStats {
+  max-width: 960px;
+  margin: 0 auto 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  padding: 0 20px;
+}
+
+.statCard {
+  background-color: var(--flowlog-surface-muted);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  border: 1px solid rgba(26, 84, 144, 0.1);
+  backdrop-filter: blur(4px);
+}
+
+.statValue {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--flowlog-accent-blue);
+  display: block;
+}
+
+.statLabel {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--flowlog-muted);
 }
 
 .highlightBox {
@@ -150,6 +243,64 @@
   color: var(--flowlog-muted);
 }
 
+.publicationsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.publicationCard {
+  border: 1px solid var(--flowlog-card-border);
+  border-radius: 10px;
+  padding: 20px;
+  background-color: var(--flowlog-card-bg);
+}
+
+.publicationCard h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+
+.publicationAuthors {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  color: var(--flowlog-muted);
+}
+
+.publicationVenue {
+  margin: 0;
+  font-weight: 600;
+  color: var(--flowlog-accent-brown);
+}
+
+.ctaPanel {
+  border: 1px solid var(--flowlog-card-border);
+  border-radius: 16px;
+  padding: 30px;
+  background: linear-gradient(120deg, rgba(30, 107, 163, 0.08), transparent);
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.ctaPanel h3 {
+  margin: 0 0 10px 0;
+  font-size: 24px;
+}
+
+.ctaPanel p {
+  margin: 0 auto 20px;
+  max-width: 600px;
+  color: var(--flowlog-muted);
+}
+
+.ctaActions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .gettingInvolved {
   text-align: center;
   max-width: 700px;
@@ -192,5 +343,13 @@
 
   .heroText h1 {
     font-size: 32px;
+  }
+
+  .heroActions {
+    justify-content: center;
+  }
+
+  .heroStats {
+    margin-top: 20px;
   }
 }
