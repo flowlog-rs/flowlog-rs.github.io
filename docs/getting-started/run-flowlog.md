@@ -134,7 +134,7 @@ $ cargo run --release -- -w 4
 
 ## Verbose compiler output
 
-The `flowlog` compiler is itself a Rust program, so you can enable more verbose **compiler** logs by setting `RUST_LOG` when you run `flowlog`:
+The <StyledFlowLog /> compiler is itself a Rust program, so you can enable more verbose **compiler** logs by setting `RUST_LOG` when you run <StyledFlowLog />:
 
 ```bash
 $ RUST_LOG=debug flowlog examples/example.dl -o example_flowlog -F ./input -D ./output
