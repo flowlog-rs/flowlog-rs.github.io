@@ -47,3 +47,15 @@
 .footer__items {
   font-size: 0.9rem;
 }
+
+/* Custom style for the word 'FlowLog' with 'Flow' in blue and 'Log' in brown */
+.flowlog {
+  font-family: 'Ubuntu', 'Cambay', sans-serif;
+  font-weight: bold;
+}
+.flowlog .flow {
+  color: var(--flowlog-accent-blue);
+}
+.flowlog .log {
+  color: var(--flowlog-accent-brown);
+}

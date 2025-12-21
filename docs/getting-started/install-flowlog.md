@@ -3,13 +3,15 @@ sidebar_position: 1
 title: Install FlowLog
 ---
 
+import StyledFlowLog from '../../src/components/StyledFlowLog';
+
 ## Binary distributions
 
 If you’re using Ubuntu/Debian, macOS or Windows, download a packaged version from our [GitHub Releases](https://github.com/flowlog-rs/FlowLog/releases). We are actively supporting more platforms.
 
 ## Build from sources
 
-Follow these steps when you need the latest FlowLog bits or want to target an OS that does not yet have a prebuilt package.
+Follow these steps when you need the latest <StyledFlowLog /> bits or want to target an OS that does not yet have a prebuilt package.
 
 ### Clone the repository
 
