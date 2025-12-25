@@ -42,23 +42,48 @@ If you need precise control over the filename, specify it explicitly:
 In **incremental** mode, input relations are updated at runtime through an interactive command loop (instead of being loaded from `-F`). You can push tuple-level or file-based updates, then `commit` to apply them.
 
 ```text
-Commands:
+Usage:
   cmd | begin
   put  <rel> <tuple> [diff]
   file <rel> <path>  [diff]
   commit | done
   abort | rollback
-  quit | exit | q
   help | h | ?
+  quit | exit | q
 
-Examples:
-  cmd
-  put source 7
-  put arc 1,2 +1
-  put arc 1,2 -1
-  file source /tmp/Source.csv +1
-  file arc    /tmp/Arc.csv    -1
-  commit
+Commands:
+  cmd, begin
+      Begin a transaction.
+
+  put <rel> <tuple> [diff]
+      Apply an update to relation <rel>.
+      <tuple> is comma-separated (e.g., 1,2 or 7).
+      [diff] defaults to +1.
+
+      Nullary relations (arity 0):
+        Use boolean tuples to toggle presence:
+          put <rel> True    # insert (diff = +1)
+          put <rel> False   # delete (diff = -1)
+        For nullary relations, any [diff] you provide is ignored.
+
+  file <rel> <path> [diff]
+      Apply updates from CSV file <path> to relation <rel>.
+      [diff] defaults to +1.
+
+      Nullary relations (arity 0):
+        File ingestion is not supported; use `put <rel> True|False`.
+
+  commit, done
+      Commit the transaction and advance time.
+
+  abort, rollback
+      Abort the transaction (discard staged updates).
+
+  help, h, ?
+      Show this help text.
+
+  quit, exit, q
+      Exit.
 ```
 
 Notes:

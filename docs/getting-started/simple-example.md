@@ -5,6 +5,8 @@ title: A Simple Example
 
 import StyledFlowLog from '../../src/components/StyledFlowLog';
 
+## Batch Mode 
+
 Say we have a Datalog file `example.dl`, whose contents are as shown.
 
 ```flowlog
@@ -68,5 +70,87 @@ $ cargo run --release -- -w 4
 ```
 
 This compiles the generated <StyledFlowLog /> workspace in release mode and executes it with four worker threads. Use fewer workers on laptops with limited cores or drop `--release` for faster rebuilds while editing.
+
+## Incremental Mode
+
+Consider this program:
+
+```flowlog
+.decl bar(X0: number)
+.input bar(IO="cmd")
+
+.decl baz()
+.input baz(IO="cmd")
+
+.decl foo(X: number)
+.output foo
+
+foo(X0) :- bar(X0), baz().
+```
+
+`bar(X0)` is a normal (arity-1) input relation, while `baz()` is a **nullary** (arity-0) input relation — it behaves like a single boolean flag. The rule says: `foo(X0)` is produced exactly when `bar(X0)` is present and `baz()` is true.
+
+After compiling with `--mode incremental`, run the generated crate:
+
+```bash
+$ cargo run --release -- -w 64
+```
+
+You’ll see something like:
+
+```flowlog
+... Dataflow assembled
+FlowLog Incremental Interactive Shell, type 'help' for commands.
+```
+
+We first start a command
+
+```flowlog
+>> begin
+(cmd begin)
+```
+
+This begins a command where updates are staged. We then insert `bar(1)`,
+
+```text
+>> put bar 1 +1
+(queued put)
+```
+
+This stages an insertion of the tuple `bar(1)`. We turn `baz()` on (nullary = boolean)
+
+```flowlog
+>> put baz True
+(queued put)
+```
+
+For **nullary relations**, <StyledFlowLog /> uses boolean tuples:
+
+- `put baz True`  ⇒ insert/enable `baz()`
+- `put baz False` ⇒ delete/disable `baz()`
+
+We commit the command
+
+```flowlog
+>> commit
+[tuple][foo]  t=0  data=(1,)  diff=+1
+... Committed & executed
+```
+
+On `commit`, <StyledFlowLog /> will publishes staged updates, advances logical time (here `t=0`), incrementally updates derived results. Because `bar(1)` is present **and** `baz()` is true, the rule fires and we get `foo(1)` with `diff=+1` (it appears).
+
+In the next step, we toggling the switch off, 
+
+```flowlog
+>> begin
+(cmd begin)
+>> put baz False
+(queued put)
+>> commit
+[tuple][foo]  t=1  data=(1,)  diff=-1
+... Committed & executed
+```
+
+At `t=1`, `baz()` becomes false, so the rule no longer holds and `foo(1)` is retracted (`diff=-1`).
 
 There are many other useful options available to <StyledFlowLog />, so be sure to explore them too!
