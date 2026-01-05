@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 title: A Simple Example
 ---
 
@@ -29,11 +29,15 @@ The last two rules state that (1) every tuple in `Source` is also in `Reach`, an
 
 For instance, if the tab-separated input files are
 
-```
-Source|Arc
-------|---
-1     |1,2
-      |2,3
+```csv
+Source
+-----
+1
+
+Arc
+-----
+1,2
+2,3
 ```
 
 then <StyledFlowLog /> derives the three tuples shown below. The extra `(1,3)` row appears because rule (2) chains the two edges together.
@@ -41,9 +45,9 @@ then <StyledFlowLog /> derives the three tuples shown below. The extra `(1,3)` r
 ```
 Reach
 -----
-1,2
-2,3
-1,3
+1
+2
+3
 ```
 
 We can compile this program by running
@@ -51,7 +55,7 @@ We can compile this program by running
 ```bash
 $ flowlog examples/example.dl -o example_flowlog -F . -D .
 ```
-We get an `example_flowlog` rust crate, note that no `reach.csv` has been produced, as the program has not yet been evaluated.
+This generates a Rust crate at `example_flowlog/`, note that no `reach.csv` has been produced, as the program has not yet been evaluated.
 
 The `-F` and `-D` options specify the directories for input and output files respectively. So in this case, `Source.csv` and `Arc.csv` is in the generated rust crate working directory `.`, and `Reach.csv` will be produced here also.
 
@@ -90,7 +94,13 @@ foo(X0) :- bar(X0), baz().
 
 `bar(X0)` is a normal (arity-1) input relation, while `baz()` is a **nullary** (arity-0) input relation — it behaves like a single boolean flag. The rule says: `foo(X0)` is produced exactly when `bar(X0)` is present and `baz()` is true.
 
-After compiling with `--mode incremental`, run the generated crate:
+After compiling using incremental mode, 
+
+```bash
+$ flowlog examples/example.dl -o example_flowlog --mode incremental -D ./output
+```
+
+run the generated crate:
 
 ```bash
 $ cargo run --release -- -w 64
@@ -103,14 +113,14 @@ You’ll see something like:
 FlowLog Incremental Interactive Shell, type 'help' for commands.
 ```
 
-We first start a command
+We first start a transaction
 
 ```flowlog
 >> begin
-(cmd begin)
+(txn begin)
 ```
 
-This begins a command where updates are staged. We then insert `bar(1)`,
+This begins a transaction where updates are staged. We then insert `bar(1)`,
 
 ```text
 >> put bar 1 +1
@@ -129,7 +139,7 @@ For **nullary relations**, <StyledFlowLog /> uses boolean tuples:
 - `put baz True`  ⇒ insert/enable `baz()`
 - `put baz False` ⇒ delete/disable `baz()`
 
-We commit the command
+We commit the transaction
 
 ```flowlog
 >> commit
@@ -143,7 +153,7 @@ In the next step, we toggling the switch off,
 
 ```flowlog
 >> begin
-(cmd begin)
+(txn begin)
 >> put baz False
 (queued put)
 >> commit

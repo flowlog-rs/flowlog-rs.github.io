@@ -1,12 +1,12 @@
 ---
-sidebar_position: 3
+sidebar_position: 2
 title: Run FlowLog
 ---
 
 import StyledFlowLog from '../../src/components/StyledFlowLog';
 
 <p>
-  <StyledFlowLog /> is a compiler for executing Datalog programs. The execution mode (batch, incremental, etc.) is determined by the runtime arguments when you execute the generated program.
+  <StyledFlowLog /> is a compiler for executing Datalog programs. The execution mode (batch, incremental) is determined by the runtime argument `--mode`.
 </p>
 
 ## Input/Output
@@ -167,6 +167,6 @@ $ RUST_LOG=debug flowlog examples/example.dl -o example_flowlog -F ./input -D ./
 
 Valid levels are typically `trace`, `debug`, `info`, `warn`, and `error`.
 
-Note: `RUST_LOG` here controls the **compiler’s** logging (i.e., the `flowlog` command). It is separate from runtime flags like `-w` / `-j`, which control how the **compiled binary** executes your program.
+Note: `RUST_LOG` here controls the **compiler's** logging (i.e., the `flowlog` command). It is separate from runtime flags like `-w` / `-j`, which control how the **compiled binary** executes your program.
 
 More informations about verbose compiler output is described in the developer documentations.

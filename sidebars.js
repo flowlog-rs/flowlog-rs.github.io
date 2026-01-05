@@ -19,11 +19,14 @@ const sidebars = {
       type: 'category',
       label: 'Getting Started',
       collapsible: true,
+      link: {
+        type: 'doc',
+        id: 'getting-started/index',
+      },
       items: [
         'getting-started/install-flowlog',
-        'getting-started/simple-example',
         'getting-started/run-flowlog',
-        'getting-started/examples',
+        'getting-started/simple-example',
       ],
     },
     {

@@ -57,6 +57,7 @@
   color: var(--flowlog-text);
   background-color: var(--flowlog-bg);
   background-image: var(--flowlog-hero-gradient);
+  display: flow-root;
   padding-bottom: 60px;
 }
 
