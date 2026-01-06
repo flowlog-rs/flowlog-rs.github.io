@@ -1,11 +1,11 @@
 ---
-sidebar_label: Overview
+sidebar_label: Getting Started
 title: Getting Started
 ---
 
 import StyledFlowLog from '../../src/components/StyledFlowLog';
 
-<div style={{ marginBottom: "0.6rem" }}>
+<div style={{ marginBottom: "0.6qrem" }}>
   <StyledFlowLog /> workflows have two simple steps:
 </div>
 

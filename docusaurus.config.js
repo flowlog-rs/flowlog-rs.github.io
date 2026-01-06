@@ -100,7 +100,7 @@ const config = {
                 html: `
                   <div class="footer__brand">
                   <p class="footer__description">
-                    An efficient, extensible, and scalable Datalog engine.
+                    An efficient, extensible, and scalable Datalog engine for incremental computation.
                   </p>
                   </div>
                 `,
