@@ -25,8 +25,8 @@ const sidebars = {
       },
       items: [
         'getting-started/install-flowlog',
-        'getting-started/run-flowlog',
-        'getting-started/simple-example',
+        'getting-started/write-a-program',
+        'getting-started/run-it',
       ],
     },
     {

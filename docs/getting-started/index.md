@@ -1,6 +1,6 @@
 ---
 sidebar_label: Getting Started
-title: Getting Started
+title: "Getting Started"
 ---
 
 import StyledFlowLog from '../../src/components/StyledFlowLog';

@@ -59,3 +59,10 @@
 .flowlog .log {
   color: var(--flowlog-accent-brown);
 }
+
+/* FlowLog Prism highlighting: keep font styles consistent across themes. */
+/* prism-react-renderer theme sets some token font-styles inline; use !important */
+.language-flowlog .token.comment,
+.language-flowlog .token.keyword {
+  font-style: normal !important;
+}
