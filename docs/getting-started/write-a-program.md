@@ -23,9 +23,9 @@ This example computes graph reachability from a set of source nodes.
 ```flowlog
 // --- Declarations ---
 
-.decl Source(id: number)
-.decl Arc(x: number, y: number)
-.decl Reach(id: number)
+.decl Source(id: int32)
+.decl Arc(x: int32, y: int32)
+.decl Reach(id: int32)
 
 // --- Inputs (EDB) ---
 
@@ -52,10 +52,10 @@ Reach(y) :- Reach(x), Arc(x, y).
 Use `.decl` to define the schema of each relation: its name and attribute types.
 
 ```flowlog
-.decl Arc(x: number, y: number)
+.decl Arc(x: int32, y: int32)
 ```
 
-Here `Arc` is a binary relation with two `number` attributes, `x` and `y`.
+Here `Arc` is a binary relation with two `int32` attributes, `x` and `y`.
 
 ### Input relations
 
