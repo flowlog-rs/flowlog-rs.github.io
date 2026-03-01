@@ -12,13 +12,13 @@ In batch mode, the runtime loads all input facts from CSV files on disk, evaluat
 We continues from **Step 1** using reachability program `reachability.dl`.
 
 ```flowlog
-.decl Source(id: number)
+.decl Source(id: int32)
 .input Source(IO="file", filename="Source.csv", delimiter=",")
 
-.decl Arc(x: number, y: number)
+.decl Arc(x: int32, y: int32)
 .input Arc(IO="file", filename="Arc.csv", delimiter=",")
 
-.decl Reach(id: number)
+.decl Reach(id: int32)
 .output Reach
 
 Reach(y) :- Source(y).
@@ -79,13 +79,13 @@ Updates are applied in **Transactions**: you `begin`, stage updates (`put` / `fi
 We continues from **Step 1** but using a slightly different reachability program `reachability.dl`.
 
 ```flowlog
-.decl Source(id: number)
+.decl Source(id: int32)
 .input Source(IO="cmd", delimiter=",")
 
-.decl Arc(x: number, y: number)
+.decl Arc(x: int32, y: int32)
 .input Arc(IO="cmd", delimiter=",")
 
-.decl Reach(id: number)
+.decl Reach(id: int32)
 .output Reach
 
 Reach(y) :- Source(y).

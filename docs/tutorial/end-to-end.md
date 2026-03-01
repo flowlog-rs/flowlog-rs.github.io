@@ -5,14 +5,14 @@ title: End-to-End Example
 
 The `example/reach.dl` program computes nodes reachable from a seed set.
 
-```datalog
-.decl Source(id: number)
+```flowlog
+.decl Source(id: int32)
 .input Source(IO="file", filename="Source.csv", delimiter=",")
 
-.decl Arc(x: number, y: number)
+.decl Arc(x: int32, y: int32)
 .input Arc(IO="file", filename="Arc.csv", delimiter=",")
 
-.decl Reach(id: number)
+.decl Reach(id: int32)
 .printsize Reach
 
 Reach(y) :- Source(y).

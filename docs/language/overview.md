@@ -5,14 +5,14 @@ title: Language Overview
 
 FlowLog accepts a Soufflé-compatible Datalog dialect with recursion, negation, arithmetic, and aggregations.
 
-```datalog
-.decl Edge(src: number, dst: number)
+```flowlog
+.decl Edge(src: int32, dst: int32)
 .input Edge(IO="file", filename="edge.csv")
 
-.decl Triangle(x: number, y: number, z: number)
+.decl Triangle(x: int32, y: int32, z: int32)
 .printsize Triangle
 
-.decl PathLen(src: number, dst: number, total: number)
+.decl PathLen(src: int32, dst: int32, total: int32)
 .printsize PathLen
 
 Triangle(x, y, z) :-

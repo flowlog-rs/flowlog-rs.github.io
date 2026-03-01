@@ -35,11 +35,11 @@ export default function prismIncludeLanguages(PrismObject) {
       },
       {
         // Common built-in types
-        pattern: /\b(?:number|string|symbol|bool)\b/,
+        pattern: /\b(?:int32|string|symbol|bool)\b/,
       },
     ],
     boolean: /\b(?:true|false)\b/,
-    number: /\b\d+(?:\.\d+)?\b/,
+    int32: /\b\d+(?:\.\d+)?\b/,
     operator: /[+\-*\/]|[<>]=?|!=|=|\b(?:and|or|not)\b/,
     punctuation: /[()\[\]{},.:]/,
   };
