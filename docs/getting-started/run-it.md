@@ -9,7 +9,7 @@ import StyledFlowLog from '../../src/components/StyledFlowLog';
 
 In batch mode, the runtime loads all input facts from CSV files on disk, evaluates the program once, and then exits.
 
-We continues from **Step 1** using reachability program `reachability.dl`.
+We continue from **Step 1** using reachability program `reachability.dl`.
 
 ```flowlog
 .decl Source(id: int32)
@@ -76,7 +76,7 @@ This compiles the generated <StyledFlowLog /> workspace in release mode and exec
 In **incremental mode**, input relations are updated at runtime through an interactive shell.
 Updates are applied in **Transactions**: you `begin`, stage updates (`put` / `file`), then `commit` to publish them and advance logical time.
 
-We continues from **Step 1** but using a slightly different reachability program `reachability.dl`.
+We continue from **Step 1** but using a slightly different reachability program `reachability.dl`.
 
 ```flowlog
 .decl Source(id: int32)
@@ -97,10 +97,10 @@ Reach(y) :- Reach(x), Arc(x, y).
 We generate a Rust crate:
 
 ```bash
-$ flowlog reachability.dl -o reachability -D . --mode incremental 
+$ flowlog reachability.dl -o reachability -D - --mode incremental
 ```
 
-In incremental mode, inputs come from the interactive shell, so `-F` is not used. Outputs still go to disk, so `-D` still matters for `.output` relations.
+In incremental mode, inputs come from the interactive shell, so `-F` is not used. As in batch mode, the `-D` option specifies the directory for output files. In this example, we set `-` as its value to print the output to the interactive shell.
 
 ### Run the generated crate
 
