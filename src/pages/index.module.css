@@ -163,6 +163,13 @@
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
 }
 
+.githubIcon {
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
 .heroStats {
   max-width: 960px;
   margin: 0 auto 40px;
@@ -249,21 +256,28 @@
 
 .publicationsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
   margin-bottom: 40px;
 }
 
 .publicationCard {
-  border: 1px solid var(--flowlog-card-border);
-  border-radius: 10px;
-  padding: 20px;
   background-color: var(--flowlog-card-bg);
+  border: 1px solid var(--flowlog-card-border);
+  border-radius: 8px;
+  padding: 25px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.publicationCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
 .publicationCard h3 {
+  color: var(--flowlog-accent-blue);
   margin: 0 0 10px 0;
-  font-size: 18px;
+  font-size: 20px;
   font-family: 'Cambay', 'DejaVu Serif', Georgia, serif;
 }
 

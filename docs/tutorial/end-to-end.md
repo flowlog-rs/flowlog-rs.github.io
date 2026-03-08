@@ -1,6 +1,6 @@
 ---
 sidebar_position: 1
-title: End-to-End Example
+title: Reachability Demo
 ---
 
 The `example/reach.dl` program computes nodes reachable from a seed set.

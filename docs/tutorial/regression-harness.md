@@ -1,6 +1,6 @@
 ---
 sidebar_position: 2
-title: Regression Harness
+title: Testing
 ---
 
 `tools/check/check.sh` automates dataset downloads, code generation, execution, and verification.

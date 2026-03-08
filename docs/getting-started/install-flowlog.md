@@ -1,6 +1,6 @@
 ---
 sidebar_position: 1
-title: "Install FlowLog"
+title: "Install"
 ---
 
 import StyledFlowLog from '../../src/components/StyledFlowLog';

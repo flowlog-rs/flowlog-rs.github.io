@@ -1,7 +1,8 @@
 ---
 sidebar_position: 0
 sidebar_label: Welcome
-title: Welcome to FlowLog
+title: " "
+hide_title: true
 ---
 
 import StyledFlowLog from '../src/components/StyledFlowLog';
@@ -26,20 +27,3 @@ import StyledFlowLog from '../src/components/StyledFlowLog';
     <strong>Scales up and out.</strong> The same <StyledFlowLog /> program can run on a single powerful machine or across a cluster. Compiled artifacts are standard Rust workspaces that fit naturally into existing systems workflows.
   </li>
 </ul>
-
-<p>
-  <StyledFlowLog /> grew out of a long line of Datalog systems work in Prof. Paraschos Koutris’s group at the University
-  of Wisconsin–Madison. The story starts with <strong>RecStep</strong>, a Datalog engine backend led by Ph.D. Zhiwei Fan; continues with a Differential Dataflow–based prototype developed by Ph.D. Hangdong Zhao; and is now being actively extended by Zhenghong Yu to support richer language features, better tooling, and broader workloads.
-</p>
-
-## Why the Name “FlowLog”?
-
-<p>
-  <StyledFlowLog /> is named from its two main ingredients: <strong>Differential Data<em>flow</em></strong> and{' '}
-  <strong>Data<em>log</em></strong>.
-</p>
-
-## Improve This Documentation
-
-We welcome edits and additions. If you find errors or spots where the explanations can be improved, please let us know by
-filing an issue on GitHub: <a href="https://github.com/flowlog-rs/flowlog-rs.github.io/issues/new">File an issue</a>.
