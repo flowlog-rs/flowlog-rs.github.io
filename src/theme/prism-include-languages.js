@@ -35,7 +35,7 @@ export default function prismIncludeLanguages(PrismObject) {
       },
       {
         // Common built-in types
-        pattern: /\b(?:int32|string|symbol|bool)\b/,
+        pattern: /\b(?:int8|int16|int32|int64|string|boolean|symbol|bool)\b/,
       },
     ],
     boolean: /\b(?:true|false)\b/,
