@@ -31,14 +31,6 @@ const sidebars = {
     },
     {
       type: 'category',
-      label: 'Tutorial',
-      items: [
-        'tutorial/end-to-end',
-        'tutorial/regression-harness',
-      ],
-    },
-    {
-      type: 'category',
       label: 'Language',
       link: {
         type: 'doc',
