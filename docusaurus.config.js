@@ -47,18 +47,6 @@ const config = {
     ],
   ],
 
-  plugins: [
-    [
-      '@docusaurus/plugin-content-docs',
-      {
-        id: 'developers',
-        path: 'developers',
-        routeBasePath: 'developers',
-        sidebarPath: require.resolve('./sidebarsDevelopers.js'),
-      },
-    ],
-  ],
-
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
@@ -75,13 +63,7 @@ const config = {
             position: 'left',
             label: 'Tutorial',
           },
-          // {
-          //   type: 'doc',
-          //   docsPluginId: 'developers',
-          //   docId: 'intro',
-          //   position: 'left',
-          //   label: 'Developers',
-          // },
+
           // {to: '/blog', label: 'Blog', position: 'left'},
           {
             href: 'https://github.com/flowlog-rs/flowlog',
@@ -114,10 +96,7 @@ const config = {
                 label: 'Tutorial',
                 to: '/tutorial/intro',
               },
-              {
-                label: 'Developers',
-                to: '/developers/intro',
-              },
+
             ],
           },
           {
