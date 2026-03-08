@@ -1,0 +1,95 @@
+---
+sidebar_position: 2
+title: Relations & Directives
+---
+
+import StyledFlowLog from '../../src/components/StyledFlowLog';
+
+# Relations & Directives
+
+Relations are the core data structures in <StyledFlowLog />. Every relation is declared with `.decl` and annotated with I/O directives that determine whether it holds input data or computed results.
+
+## Declaring relations
+
+Use `.decl` to define a relation's schema. Each column has a name and a [data type](datatype):
+
+```flowlog
+.decl Edge(src: int32, dst: int32)
+.decl Person(id: int64, name: string, active: bool)
+```
+
+## EDB vs IDB relations
+
+<StyledFlowLog /> distinguishes two kinds of relations:
+
+- **EDB (Extensional Database)** — input relations whose data comes from external files. Marked with `.input`.
+- **IDB (Intensional Database)** — computed relations whose contents are derived by [rules](rules). Marked with `.output` or `.printsize`.
+
+A relation cannot be both EDB and IDB. If a relation has an `.input` directive, it cannot also have `.output` or `.printsize`, and vice versa.
+
+## `.input` directive
+
+The `.input` directive tells the compiler how to read data for an EDB relation:
+
+```flowlog
+.decl Arc(x: int32, y: int32)
+.input Arc(IO="file", filename="Arc.csv", delimiter=",")
+```
+
+Parameters:
+
+| Parameter   | Description                          | Example         |
+|-------------|--------------------------------------|-----------------|
+| `IO`        | I/O method (currently `"file"`)      | `IO="file"`     |
+| `filename`  | Path to the input CSV file           | `filename="Arc.csv"` |
+| `delimiter` | Column separator                     | `delimiter=","` |
+
+When running the compiler with `-F <DIR>`, the `filename` is resolved relative to that directory.
+
+## `.output` directive
+
+The `.output` directive marks an IDB relation for result output:
+
+```flowlog
+.decl Reach(id: int32)
+.output Reach
+```
+
+Pass `-D <DIR>` to the compiler to write output CSVs to a directory, or `-D -` to print tuples to stderr.
+
+## `.printsize` directive
+
+The `.printsize` directive prints the cardinality (number of tuples) of a relation after execution:
+
+```flowlog
+.decl Reach(id: int32)
+.printsize Reach
+```
+
+A relation can have both `.output` and `.printsize`.
+
+## Complete example
+
+```flowlog
+// EDB relations — loaded from CSV files
+.decl Source(id: int32)
+.input Source(IO="file", filename="Source.csv", delimiter=",")
+
+.decl Arc(x: int32, y: int32)
+.input Arc(IO="file", filename="Arc.csv", delimiter=",")
+
+// IDB relation — computed by rules
+.decl Reach(id: int32)
+.printsize Reach
+
+Reach(y) :- Source(y).
+Reach(y) :- Reach(x), Arc(x, y).
+```
+
+## Validation
+
+<StyledFlowLog /> validates declarations at parse time:
+
+- Duplicate `.input`, `.output`, or `.printsize` directives for the same relation are rejected.
+- A directive that references an undeclared relation causes a parse error.
+- A relation with both `.input` and `.output` (or `.printsize`) is rejected.

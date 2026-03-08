@@ -18,7 +18,7 @@ export default function prismIncludeLanguages(PrismObject) {
   // Keep this intentionally small: directives + comments + literals.
   PrismObject.languages.flowlog = {
     comment: {
-      pattern: /\/\/[^\r\n]*/,
+      pattern: /(?:\/\/|#)[^\r\n]*/,
     },
     string: {
       pattern: /"(?:\\.|[^"\\])*"/,
@@ -26,21 +26,29 @@ export default function prismIncludeLanguages(PrismObject) {
     },
     keyword: [
       {
-        // Datalog/FlowLog directives (.decl, .input, ...)
-        pattern: /\.(?:decl|input|output|printsize)\b/,
+        // Datalog/FlowLog directives (.decl, .input, .output, .printsize, .extern)
+        pattern: /\.(?:decl|input|output|printsize|extern)\b/,
       },
       {
         // Rule separator
         pattern: /:-/,
       },
       {
-        // Common built-in types
-        pattern: /\b(?:int8|int16|int32|int64|string|boolean|symbol|bool)\b/,
+        // Built-in types
+        pattern: /\b(?:int8|int16|int32|int64|string|bool)\b/,
+      },
+      {
+        // Aggregate operators
+        pattern: /\b(?:count|COUNT|sum|SUM|min|MIN|max|MAX|average|AVG)\b/,
+      },
+      {
+        // Extern function keyword
+        pattern: /\bfn\b/,
       },
     ],
-    boolean: /\b(?:true|false)\b/,
-    int32: /\b\d+(?:\.\d+)?\b/,
-    operator: /[+\-*\/]|[<>]=?|!=|=|\b(?:and|or|not)\b/,
+    boolean: /\b(?:True|False)\b/,
+    number: /\b\d+\b/,
+    operator: /[+\-*\/%]|[<>]=?|!=|=|!|\b(?:cat)\b/,
     punctuation: /[()\[\]{},.:]/,
   };
 

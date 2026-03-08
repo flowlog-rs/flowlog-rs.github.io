@@ -1,27 +1,25 @@
 ---
 sidebar_position: 1
-title: Data types
+title: Data Types
 ---
 
 import StyledFlowLog from '../../src/components/StyledFlowLog';
 
 # Data Types
 
-<StyledFlowLog /> supports the following primitive data types for relation columns:
+<StyledFlowLog /> supports four primitive data types for relation columns.
 
 ## Integer
 
-| Type   | Size    | Min | Max |
-|--------|---------|-----|-----|
-| `int8`   | 8-bit   | -128 | 127 |
-| `int16`  | 16-bit  | -32,768 | 32,767 |
-| `int32`  | 32-bit  | -2.1 × 10<sup>9</sup> | 2.1 × 10<sup>9</sup> |
-| `int64`  | 64-bit  | -9.2 × 10<sup>18</sup> | 9.2 × 10<sup>18</sup> |
+| Type     | Size    | Min                       | Max                      |
+|----------|---------|---------------------------|--------------------------|
+| `int32`  | 32-bit  | -2.1 × 10<sup>9</sup>    | 2.1 × 10<sup>9</sup>    |
+| `int64`  | 64-bit  | -9.2 × 10<sup>18</sup>   | 9.2 × 10<sup>18</sup>   |
 
-Integer types map directly to the corresponding Rust signed integer types in the generated code.
+Integer types map directly to the corresponding Rust signed integer types (`i32`, `i64`) in the generated code.
 
 ```flowlog
-.decl Score(student_id: int32, grade: int8)
+.decl Score(student_id: int32, grade: int32)
 // Score(1001, 95).
 ```
 
@@ -36,11 +34,11 @@ The `string` type represents a UTF-8 string value. String constants are written 
 
 ## Boolean
 
-The `boolean` type represents a true/false value:
+The `bool` type represents a true/false value. Boolean literals are written as `True` or `False` (capitalized):
 
 ```flowlog
-.decl Flag(id: int32, active: boolean)
-// Flag(1, true).
+.decl Flag(id: int32, active: bool)
+// Flag(1, True).
 ```
 
 ## Declaring types in relations
@@ -49,8 +47,7 @@ Types are specified in `.decl` directives:
 
 ```flowlog
 .decl Edge(src: int32, dst: int32)
-.decl Person(id: int64, name: string, active: boolean)
-.decl Score(student: int16, grade: int8)
+.decl Person(id: int64, name: string, active: bool)
 ```
 
 Every column in a relation must have an explicit type annotation.
@@ -75,23 +72,23 @@ Match(x, label) :- Edge(x, y), Node(y, label).
 
 ### Rule heads
 
-When multiple rules write to the same IDB relation, all rules must produce the same column types as the IDB declaration. For example, if `Route(src, dst, cost)` is declared with `(int32, int32, int16)`, every rule deriving `Route` must produce `(int32, int32, int16)`.
+When multiple rules write to the same IDB relation, all rules must produce the same column types as the IDB declaration. For example, if `Route(src, dst, cost)` is declared with `(int32, int32, int32)`, every rule deriving `Route` must produce `(int32, int32, int32)`.
 
 ```flowlog
 .decl Edge(src: int32, dst: int32)
-.decl Weight(src: int32, dst: int32, cost: int16)
-.decl Route(src: int32, dst: int32, cost: int16)
+.decl Weight(src: int32, dst: int32, cost: int32)
+.decl Route(src: int32, dst: int32, cost: int32)
 
-// Both rules produce (int32, int32, int16) — matches the declaration
+// Both rules produce (int32, int32, int32) — matches the declaration
 Route(x, y, c) :- Edge(x, y), Weight(x, y, c).
 Route(x, z, c) :- Route(x, y, _), Edge(y, z), Weight(y, z, c).
 ```
 
-Since `x`, `y`, and `z` come from `Edge` (declared as `(int32, int32)`) and `c` comes from `Weight` (declared with `cost: int16`), the types match the `Route` declaration.
+Since `x`, `y`, and `z` come from `Edge` (declared as `(int32, int32)`) and `c` comes from `Weight` (declared with `cost: int32`), the types match the `Route` declaration.
 
 ### Constants
 
-<p><code>String</code> and <code>Boolean</code> constants are type-checked by <StyledFlowLog />. Integer constants (e.g., <code>42</code>) are <b>NOT</b> explicitly checked — if a constant doesn't fit the column type (e.g., <code>999</code> in an <code>int8</code> column), the value will be silently truncated.</p>
+<p><code>String</code> and <code>Bool</code> constants are type-checked by <StyledFlowLog />. Integer constants (e.g., <code>42</code>) are <b>NOT</b> explicitly checked — if a constant doesn't fit the column type, the value will be silently truncated.</p>
 
 ### Comparisons
 

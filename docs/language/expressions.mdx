@@ -1,0 +1,85 @@
+---
+sidebar_position: 4
+title: Arithmetic & Comparisons
+---
+
+import StyledFlowLog from '../../src/components/StyledFlowLog';
+
+# Arithmetic & Comparisons
+
+<StyledFlowLog /> supports arithmetic expressions and comparison expressions inside rule bodies and heads.
+
+## Arithmetic expressions
+
+Arithmetic expressions combine variables and constants with operators. They are parsed **left-to-right without precedence** — `x + y * z` is evaluated as `(x + y) * z`.
+
+### Operators
+
+#### Integer operators
+
+These operators apply to integer types (`int8`, `int16`, `int32`, `int64`):
+
+| Operator | Description            | Example       |
+|----------|------------------------|---------------|
+| `+`      | Addition               | `x + 1`       |
+| `-`      | Subtraction            | `x - y`       |
+| `*`      | Multiplication         | `x * 2`       |
+| `/`      | Integer division       | `x / 3`       |
+| `%`      | Modulo (remainder)     | `x % 2`       |
+
+#### String operator
+
+The `cat` operator concatenates two `string` values:
+
+| Operator | Description            | Example       |
+|----------|------------------------|---------------|
+| `cat`    | String concatenation   | `x cat y`     |
+
+### Usage in rule heads
+
+Arithmetic expressions can appear in the head of a rule:
+
+```flowlog
+.decl Arc(src: int32, dst: int32, weight: int32)
+.decl DoubleWeight(src: int32, dst: int32, w: int32)
+
+DoubleWeight(x, y, w * 2) :- Arc(x, y, w).
+```
+
+### Usage in rule bodies
+
+Arithmetic expressions are used in comparisons within rule bodies:
+
+```flowlog
+// Nodes ordered by a composite key
+laterChild(pCtr, pN, c2Ctr, c2N) :-
+  insert(c1Ctr, c1N, pCtr, pN),
+  insert(c2Ctr, c2N, pCtr, pN),
+  c1Ctr * 10 + c1N > c2Ctr * 10 + c2N.
+```
+
+## Comparison expressions
+
+Comparisons test a condition between two arithmetic expressions. They appear as predicates in rule bodies.
+
+### Operators
+
+| Operator | Description         | Example     |
+|----------|---------------------|-------------|
+| `=`      | Equal               | `x = y`     |
+| `!=`     | Not equal           | `x != y`    |
+| `>`      | Greater than        | `x > 0`     |
+| `<`      | Less than           | `x < 100`   |
+| `>=`     | Greater or equal    | `x >= y`    |
+| `<=`     | Less or equal       | `x <= y`    |
+
+### Example
+
+```flowlog
+.decl Arc(src: int32, dest: int32)
+.decl Sg(src: int32, dest: int32)
+
+// Same-generation query: x and y share a common ancestor, and x ≠ y
+Sg(x, y) :- Arc(a, x), Arc(a, y), x != y.
+Sg(x, y) :- Arc(a, x), Sg(a, b), Arc(b, y).
+```

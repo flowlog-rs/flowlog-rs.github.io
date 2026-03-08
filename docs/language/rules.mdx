@@ -1,0 +1,117 @@
+---
+sidebar_position: 3
+title: Rules
+---
+
+import StyledFlowLog from '../../src/components/StyledFlowLog';
+
+# Rules
+
+Rules are the computation core of a <StyledFlowLog /> program. Each rule derives new tuples for an IDB [relation](relations) from existing relations.
+
+## Syntax
+
+A rule has a **head** (the relation being derived) and a **body** (a comma-separated list of predicates), separated by `:-` and terminated with a period:
+
+```flowlog
+Head(args...) :- body_predicate1, body_predicate2, ... .
+```
+
+Example — transitive closure:
+
+```flowlog
+.decl Arc(x: int32, y: int32)
+.input Arc(IO="file", filename="Arc.csv", delimiter=",")
+
+.decl Tc(x: int32, y: int32)
+.printsize Tc
+
+// Base case: every arc is in the transitive closure
+Tc(x, y) :- Arc(x, y).
+
+// Recursive case: extend reachability by one hop
+Tc(x, y) :- Tc(x, z), Arc(z, y).
+```
+
+## Atoms
+
+An **atom** is a reference to a relation with arguments. Arguments can be variables, constants, or the placeholder `_`:
+
+```flowlog
+Edge(x, y)          // two variables
+Edge(1, y)          // constant + variable
+Edge(_, y)          // placeholder + variable
+```
+
+The placeholder `_` matches any value without binding a variable name.
+
+### Positive atoms
+
+Positive atoms in the body require matching tuples to exist:
+
+```flowlog
+Reach(y) :- Reach(x), Arc(x, y).
+```
+
+Here, `Reach(x)` and `Arc(x, y)` are positive atoms. The variable `x` acts as a **join key** — it must have the same value in both relations.
+
+### Negative atoms
+
+Prefix an atom with `!` to negate it. A negated atom succeeds when **no** matching tuple exists:
+
+```flowlog
+.decl Arc(src: int32, dst: int32)
+.decl Source(x: int32)
+.decl BipartiteViolation(x: int32)
+.decl Zero(x: int32)
+.decl One(x: int32)
+
+Zero(x) :- Source(x).
+One(y) :- Arc(x, y), Zero(x).
+Zero(y) :- Arc(x, y), One(x).
+
+// A node that is both Zero and One violates bipartiteness
+BipartiteViolation(x) :- One(x), Zero(x).
+```
+
+Another example using negation:
+
+```flowlog
+// Nodes with no outgoing first-child link
+nextElem(prev, next) :- !hasChild(prev, _), nextSiblingAnc(prev, next).
+```
+
+<StyledFlowLog /> uses **stratified negation** — negated relations must not depend on the rule's head through a cycle. The compiler automatically computes strata and schedules evaluation accordingly.
+
+## Variables and joins
+
+Variables that appear in multiple atoms in the same rule body serve as **join keys**. <StyledFlowLog /> requires join variables to have compatible types across all atoms they appear in:
+
+```flowlog
+// x joins Edge and Node; y joins Edge and Node
+Match(x, label) :- Edge(x, y), Node(y, label).
+```
+
+## Constants
+
+Integer, string, and boolean constants can appear in atom arguments:
+
+```flowlog
+Edge(1, 2)              // integer constants
+Name(1, "alice")        // string constant
+Flag(1, True)           // boolean constant (capitalized)
+```
+
+Boolean literals use `True` and `False` (capitalized).
+
+## Multiple rules
+
+Multiple rules can derive tuples for the same IDB relation. The result is the **union** of all derived tuples:
+
+```flowlog
+.decl Reach(id: int32)
+
+// Two rules both contribute to Reach
+Reach(y) :- Source(y).
+Reach(y) :- Reach(x), Arc(x, y).
+```

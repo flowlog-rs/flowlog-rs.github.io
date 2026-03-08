@@ -1,0 +1,71 @@
+---
+sidebar_position: 1
+title: Basics
+---
+
+import StyledFlowLog from '@site/src/components/StyledFlowLog';
+
+# Basics
+
+This page covers the fundamental building blocks of a <StyledFlowLog /> program.
+
+## Variables
+
+Variables are identifiers that start with a **lowercase letter** and may contain letters, digits, and underscores. Variables are local to the rule they appear in:
+
+```flowlog
+Path(x, y) :- Edge(x, y).
+Path(x, z) :- Path(x, y), Edge(y, z).
+```
+
+Here `x`, `y`, and `z` are variables. The same variable name in different rules refers to independent bindings.
+
+## Constants
+
+<StyledFlowLog /> supports four kinds of constants:
+
+| Kind    | Example          | Description                  |
+|---------|------------------|------------------------------|
+| Integer | `42`, `-1`, `0`  | Decimal integer literal      |
+| String  | `"hello"`        | Double-quoted UTF-8 string   |
+| Boolean | `True`, `False`  | Capitalized boolean literal  |
+
+Constants can appear in rule heads and bodies:
+
+```flowlog
+Source(1).
+Name(1, "alice").
+Flag(1, True).
+
+BigNode(x) :- Node(x, size), size > 100.
+```
+
+## Placeholders
+
+The underscore `_` is a **wildcard** that matches any value without binding it to a variable. Use it when you don't need a column's value:
+
+```flowlog
+HasOutEdge(x) :- Edge(x, _).
+```
+
+Multiple underscores in the same rule are independent — each matches any value.
+
+## Comments
+
+Comments start with `//` or `#` and extend to the end of the line:
+
+```flowlog
+// This is a comment
+# This is also a comment
+Reach(y) :- Source(y).  // inline comment
+```
+
+## Whitespace
+
+Whitespace (spaces, tabs, newlines) is not significant except to separate tokens. Rules can span multiple lines:
+
+```flowlog
+Path(x, y) :-
+    Edge(x, z),
+    Path(z, y).
+```

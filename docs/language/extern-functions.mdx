@@ -1,0 +1,88 @@
+---
+sidebar_position: 6
+title: User-Defined Functions
+---
+
+import StyledFlowLog from '../../src/components/StyledFlowLog';
+
+# User-Defined Functions
+
+<StyledFlowLog /> supports **user-defined functions (UDFs)** that call into Rust code from within rules. This lets you extend the language with custom scalar logic that cannot be expressed in pure Datalog.
+
+## Declaring a UDF
+
+Use `.extern fn` to declare a UDF's signature:
+
+```flowlog
+.extern fn function_name(param1: type1, param2: type2) -> return_type
+```
+
+Example:
+
+```flowlog
+.extern fn hash_pair(x: int32, y: int32) -> int64
+```
+
+Parameters and return types use the same [data types](datatype) as relation columns.
+
+## Using UDFs in rule heads
+
+A UDF call can appear as a head argument, computing a derived value:
+
+```flowlog
+.extern fn hash_pair(x: int32, y: int32) -> int64
+
+.decl Edge(src: int32, dst: int32)
+.decl HashedEdge(src: int32, dst: int32, h: int64)
+
+HashedEdge(x, y, hash_pair(x, y)) :- Edge(x, y).
+```
+
+## Using UDFs as body predicates
+
+A UDF call in the rule body acts as a **boolean predicate** — the rule fires only when the function returns `true`:
+
+```flowlog
+.extern fn is_valid(x: int32, y: int32) -> bool
+
+.decl Edge(src: int32, dst: int32)
+.decl ValidEdge(src: int32, dst: int32)
+
+ValidEdge(x, y) :- Edge(x, y), is_valid(x, y).
+```
+
+Negated UDF predicates are also supported — prefix with `!`:
+
+```flowlog
+InvalidEdge(x, y) :- Edge(x, y), !is_valid(x, y).
+```
+
+## Writing the implementation
+
+UDF implementations are written in a standalone **Rust source file**. Each `.extern fn` declared in your program must have a corresponding `pub fn` in this file, using the equivalent Rust types:
+
+For example, given the declaration:
+
+```flowlog
+.extern fn hash_pair(x: int32, y: int32) -> int64
+```
+
+Create a Rust file (e.g. `my_udfs.rs`):
+
+```rust
+pub fn hash_pair(x: i32, y: i32) -> i64 {
+    ((x as i64) << 32) | (y as i64)
+}
+```
+
+The file must compile as a standalone Rust library — do not include `fn main()` or module declarations.
+
+## Passing the UDF file to the compiler
+
+Use the `--udf-file` flag to provide your Rust source file when compiling:
+
+```bash
+$ flowlog my_program.dl --udf-file my_udfs.rs -o output
+```
+
+<p>The compiler copies your file into the generated Cargo project as <code>src/udf.rs</code> and calls your functions via <code>udf::function_name()</code>.</p>

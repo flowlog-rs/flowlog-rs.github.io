@@ -40,8 +40,18 @@ const sidebars = {
     {
       type: 'category',
       label: 'Language',
+      link: {
+        type: 'doc',
+        id: 'language/index',
+      },
       items: [
+        'language/syntax',
         'language/datatype',
+        'language/relations',
+        'language/rules',
+        'language/expressions',
+        'language/aggregation',
+        'language/extern-functions',
       ],
     },
     // {

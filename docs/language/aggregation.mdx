@@ -1,0 +1,73 @@
+---
+sidebar_position: 5
+title: Aggregation
+---
+
+import StyledFlowLog from '../../src/components/StyledFlowLog';
+
+# Aggregation
+
+<StyledFlowLog /> supports aggregate functions in rule heads. Aggregations compute summary values over groups of tuples.
+
+## Syntax
+
+An aggregate function wraps an arithmetic expression in the **head** of a rule:
+
+```flowlog
+Head(group_key, agg_op(value_expr)) :- Body(...).
+```
+
+Columns in the head that are **not** wrapped in an aggregate automatically become **group-by keys**.
+
+## Supported operators
+
+| Operator              | Description               |
+|-----------------------|---------------------------|
+| `min` / `MIN`         | Minimum value             |
+| `max` / `MAX`         | Maximum value             |
+| `sum` / `SUM`         | Sum of values             |
+| `count` / `COUNT`     | Count of tuples           |
+| `average` / `AVG`     | Average value             |
+
+## Examples
+
+### Connected components
+
+Compute the connected component label for each node as the minimum reachable node id:
+
+```flowlog
+.decl Arc(a: int32, b: int32)
+.input Arc(IO="file", filename="Arc.csv", delimiter=",")
+
+.decl CC(node: int32, cc: int32)
+.printsize CC
+
+CC(node, min(node)) :- Arc(node, _).
+CC(node, min(cc)) :- Arc(other, node), CC(other, cc).
+```
+
+Here `node` is the group-by key and `min(...)` selects the smallest component label.
+
+### Single-source shortest paths
+
+Compute shortest distances from seed nodes using `min` aggregation:
+
+```flowlog
+.decl arc(src: int32, dest: int32, weight: int32)
+.decl id(src: int32)
+.decl sssp(x: int32, y: int32)
+
+.input arc(IO="file", filename="Arc.csv", delimiter=",")
+.input id(IO="file", filename="Id.csv", delimiter=",")
+
+sssp(x, min(0)) :- id(x).
+sssp(y, min(d1 + d2)) :- sssp(x, d1), arc(x, y, d2).
+
+.printsize sssp
+```
+
+The aggregate argument can be an arithmetic expression (`d1 + d2`).
+
+## Aggregation and stratification
+
+Aggregated relations participate in <StyledFlowLog />'s stratification analysis. The compiler schedules evaluation strata so that aggregated values are fully computed before downstream rules consume them.
