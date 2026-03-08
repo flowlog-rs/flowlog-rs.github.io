@@ -10,6 +10,9 @@
 :root {
   --ifm-font-family-base: 'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --ifm-heading-font-family: 'Cambay', 'DejaVu Serif', Georgia, serif;
+  --ifm-h1-font-size: 1.5rem;
+  --ifm-h2-font-size: 1.2rem;
+  --ifm-h3-font-size: 1.1rem;
   --ifm-color-primary: #1e6ba3;
   --ifm-color-primary-dark: #1a5f91;
   --ifm-color-primary-darker: #185a89;
@@ -67,4 +70,18 @@
 .language-flowlog .token.comment,
 .language-flowlog .token.keyword {
   font-style: normal !important;
+}
+
+/* Tighten doc-page heading sizes relative to body text */
+.markdown h1,
+.docMainWrapper h1 {
+  font-size: 1.5rem;
+}
+
+.markdown h2 {
+  font-size: 1.2rem;
+}
+
+.markdown h3 {
+  font-size: 1.1rem;
 }

@@ -1,15 +1,10 @@
 ---
 sidebar_position: 0
 sidebar_label: Welcome
-title: " "
-hide_title: true
+title: Welcome
 ---
 
 import StyledFlowLog from '../src/components/StyledFlowLog';
-
-<p align="center">
-  <img src="/img/flowlog_full.png" alt="FlowLog Logo" width="420" />
-</p>
 
 <p>
   <StyledFlowLog /> is a Datalog-inspired toolchain for building dataflow services. It compiles Datalog programs into Rust crates backed by <a href="https://github.com/TimelyDataflow/differential-dataflow">Differential Dataflow</a>, ingests telemetry and cloud-flow data, and plans optimized pipelines that are ready to deploy. <StyledFlowLog /> is built for workloads that need to keep results fresh as data changes, without giving up on performance stability or operability at scale.
