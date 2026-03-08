@@ -41,9 +41,7 @@ const sidebars = {
       type: 'category',
       label: 'Language',
       items: [
-        'language/overview',
-        'language/limitations',
-        'language/background',
+        'language/datatype',
       ],
     },
     // {

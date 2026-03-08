@@ -84,7 +84,7 @@ const config = {
           // },
           // {to: '/blog', label: 'Blog', position: 'left'},
           {
-            href: 'https://github.com/flowlog-rs/FlowLog-VLDB',
+            href: 'https://github.com/flowlog-rs/flowlog',
             label: 'GitHub',
             position: 'right',
           },
@@ -129,7 +129,7 @@ const config = {
               // },
               {
                 label: 'GitHub',
-                href: 'https://github.com/flowlog-rs/FlowLog-VLDB',
+                href: 'https://github.com/flowlog-rs/flowlog',
               },
             ],
           },
