@@ -49,7 +49,7 @@ const PUBLICATIONS = [
     title: 'FlowLog: Efficient and Extensible Datalog via Incrementality',
     authors: 'H. Zhao, Z. Yu, S. Rao, S. Frisk, Z. Fan, P. Koutris',
     venue: 'VLDB 2026',
-    href: 'https://arxiv.org/pdf/2511.00865',
+    href: 'https://www.vldb.org/pvldb/vol19/p361-zhao.pdf',
   },
   {
     title: 'Evaluating Datalog over Semirings: A Grounding-based Approach',
@@ -137,7 +137,7 @@ export default function Home() {
             <strong>News:</strong> FlowLog has been accepted to{' '}
             <strong>VLDB 2026</strong>. Read{' '}
             <a
-              href="https://arxiv.org/pdf/2511.00865"
+              href="https://www.vldb.org/pvldb/vol19/p361-zhao.pdf"
               target="_blank"
               rel="noreferrer">
               it
