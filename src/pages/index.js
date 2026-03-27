@@ -15,18 +15,29 @@ const KEY_FEATURES = [
           rel="noreferrer">
           Soufflé
         </a>{' '}
-        syntax.
+        syntax — <code>.decl</code>, <code>.input</code>, <code>.output</code>, inline facts, and more.
       </>
     ),
   },
   {
     title: 'Compile to Executable',
-    description:
-      'Compile Datalog programs directly into standalone binary executables — no intermediate Rust project to manage.',
+    description: (
+      <>
+        Compile <code>.dl</code> programs directly into standalone
+        binaries — no intermediate Rust project to manage. Just{' '}
+        <code>flowlog program.dl -o binary</code> and run.
+      </>
+    ),
   },
   {
     title: 'Four Execution Modes',
-    description: 'Choose from datalog-batch, datalog-inc, extend-batch, and extend-inc to match your workload semantics.',
+    description: (
+      <>
+        Choose <code>datalog-batch</code>, <code>datalog-inc</code>,{' '}
+        <code>extend-batch</code>, or <code>extend-inc</code> via{' '}
+        <code>--mode</code> to match your workload semantics.
+      </>
+    ),
   },
   {
     title: 'Robustness First',
@@ -40,8 +51,13 @@ const KEY_FEATURES = [
   },
   {
     title: 'Extensibility',
-    description:
-      'Extend with loop blocks, user-defined functions, and modular .include files.',
+    description: (
+      <>
+        Go beyond standard Datalog with <code>fixpoint</code>,{' '}
+        <code>loop while</code>/<code>until</code> blocks,{' '}
+        <code>@it</code> iteration counter, <code>.extern fn</code> UDFs, and <code>.include</code> for modular programs.
+      </>
+    ),
   },
 ];
 
