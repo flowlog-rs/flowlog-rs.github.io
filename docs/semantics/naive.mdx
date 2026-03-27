@@ -1,0 +1,51 @@
+---
+sidebar_position: 1
+title: Naive Evaluation
+---
+
+import StyledFlowLog from '../../src/components/StyledFlowLog';
+
+# Naive Evaluation
+
+The most straightforward way to reach a fixpoint. Simple to understand, terrible at scale. FlowLog doesn't actually use this — but understanding it makes [semi-naive](semi-naive) click instantly.
+
+## The algorithm
+
+Every round, re-evaluate **every** rule over **all** known facts. Whatever is new, add it. Repeat until nothing changes.
+
+```
+round 1: apply all rules to all EDB facts         → derive some new facts
+round 2: apply all rules to ALL facts (EDB + new) → maybe derive more
+round 3: apply all rules to ALL facts again        → maybe derive more
+...until nothing new appears
+```
+
+## Walkthrough
+
+Let's trace it on transitive closure with edges `1→2` and `2→3`:
+
+```flowlog
+Reach(x, y) :- Edge(x, y).
+Reach(x, z) :- Reach(x, y), Edge(y, z).
+```
+
+**Round 1** — Apply both rules to all known facts (just `Edge` so far):
+- Rule 1: `Edge(1,2)` → `Reach(1,2)`. `Edge(2,3)` → `Reach(2,3)`. *(2 new)*
+- Rule 2: `Reach` was empty at the start of this round, so nothing.
+
+**Round 2** — Apply both rules to ALL facts (Edge + Reach):
+- Rule 1: `Edge(1,2)` → `Reach(1,2)`. Already known. `Edge(2,3)` → `Reach(2,3)`. Already known. *(0 new from rule 1 — all redundant!)*
+- Rule 2: `Reach(1,2)` + `Edge(2,3)` → `Reach(1,3)`. *(1 new)*. Also tries `Reach(2,3)` + `Edge(?,?)` — no match.
+
+**Round 3** — Apply both rules to ALL facts again:
+- Rule 1: re-derives `Reach(1,2)` and `Reach(2,3)` again. Still redundant.
+- Rule 2: re-derives `Reach(1,3)` again. Also tries `Reach(1,3)` + `Edge(3,?)` — no match.
+- Nothing new. **Fixpoint.**
+
+## The problem
+
+Did you notice? In round 2, rule 1 re-derived two facts we already had. In round 3, *both* rules re-derived facts we already had. That's 5 redundant derivations on a tiny 2-edge graph.
+
+On a graph with a million edges, naive evaluation re-derives millions of known facts every single round. Most of the work is wasted — you're paying to "discover" things you discovered rounds ago.
+
+The cost grows roughly as O(n × r), where n is the number of facts and r is the number of rounds to fixpoint. For deep recursions (like long-chain reachability), r can be large, and each round scans everything.

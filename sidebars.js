@@ -47,6 +47,20 @@ const sidebars = {
         'language/extended-semantics',
       ],
     },
+    {
+      type: 'category',
+      label: 'Semantics',
+      collapsible: true,
+      link: {
+        type: 'doc',
+        id: 'semantics/index',
+      },
+      items: [
+        'semantics/naive',
+        'semantics/semi-naive',
+        'semantics/stratification',
+      ],
+    },
     // {
     //   type: 'category',
     //   label: 'Publications',

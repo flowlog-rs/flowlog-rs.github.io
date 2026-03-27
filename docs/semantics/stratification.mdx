@@ -1,0 +1,101 @@
+---
+sidebar_position: 3
+title: Stratification
+---
+
+import StyledFlowLog from '../../src/components/StyledFlowLog';
+
+# Stratification
+
+Semi-naive evaluation handles recursion beautifully. But some rules can't just be thrown into the same pot — **negation** and **aggregation** need to know the final answer before they can run. That's where stratification comes in.
+
+## The problem
+
+Consider this program:
+
+```flowlog
+Reach(x, y) :- Edge(x, y).
+Reach(x, z) :- Reach(x, y), Edge(y, z).
+
+Unreachable(x, y) :- Node(x), Node(y), !Reach(x, y).
+```
+
+`Unreachable` negates `Reach`. But if we evaluate all three rules simultaneously, `Reach` is still growing while `Unreachable` tries to read it. Negating a half-computed relation gives wrong answers — you'd "discover" that node 5 is unreachable, only to find out two rounds later that it actually is reachable.
+
+The same issue applies to aggregation. You can't compute `min(cost)` while new, potentially smaller costs are still being derived.
+
+## The solution: layers (strata)
+
+<StyledFlowLog /> splits rules into ordered layers called **strata**. Each stratum runs to fixpoint before the next one starts. The rule: if relation A **negates** or **aggregates** over relation B, then B must be in an earlier stratum.
+
+The compiler figures this out automatically:
+
+1. **Build a dependency graph** — an edge from B to A means "A depends on B."
+2. **Find strongly connected components (SCCs)** — relations that mutually depend on each other through *positive* edges go in the same stratum. They can recurse together safely.
+3. **Order by negation/aggregation edges** — these edges impose a strict ordering between strata. B's stratum must finish before A's stratum begins.
+
+## Walkthrough
+
+```flowlog
+.decl Edge(x: int32, y: int32)
+.decl Node(x: int32)
+.decl Reach(x: int32, y: int32)
+.decl Unreachable(x: int32, y: int32)
+.decl CC(node: int32, label: int32)
+
+// Group 1: Reach depends on itself (positive recursion)
+Reach(x, y) :- Edge(x, y).
+Reach(x, z) :- Reach(x, y), Edge(y, z).
+
+// Group 2: CC also depends on itself (positive recursion)
+CC(x, min(x)) :- Node(x).
+CC(x, min(c)) :- Edge(x, y), CC(y, c).
+
+// Group 3: Unreachable negates Reach
+Unreachable(x, y) :- Node(x), Node(y), !Reach(x, y).
+```
+
+The compiler produces three strata:
+
+| Stratum | Relations | Why |
+|---------|-----------|-----|
+| 1 | `Reach` | Recursive, no negation/aggregation dependencies |
+| 2 | `CC` | Uses `min` aggregation (self-contained, no dependency on Reach) |
+| 3 | `Unreachable` | Negates `Reach` — must wait for stratum 1 to finish |
+
+Strata 1 and 2 are independent and could even run in parallel. Stratum 3 must wait for stratum 1.
+
+## What happens in each stratum
+
+Each stratum runs [semi-naive evaluation](semi-naive) independently:
+
+1. **Load inputs** — EDB facts and results from earlier strata.
+2. **Semi-naive to fixpoint** — apply rules, track deltas, iterate until Δ = ∅.
+3. **Freeze** — the results are now final. Later strata can safely negate or aggregate over them.
+
+## Cycles through negation = error
+
+What if two relations negate each other?
+
+```flowlog
+// This won't compile!
+A(x) :- Node(x), !B(x).
+B(x) :- Node(x), !A(x).
+```
+
+A needs B to be finished, and B needs A to be finished. There's no valid ordering — it's a chicken-and-egg problem. <StyledFlowLog /> rejects this at compile time. It's not a limitation of the implementation; it's a fundamental ambiguity in Datalog semantics. (If you're curious, look up "well-founded semantics" for one way to give meaning to such programs — but FlowLog sticks with the cleaner stratified approach.)
+
+## Aggregation works the same way
+
+Aggregation edges are treated identically to negation edges for stratification purposes. If a rule aggregates over relation B, then B's stratum must complete first:
+
+```flowlog
+// Stratum 1: compute shortest paths
+SSSP(x, min(0)) :- Source(x).
+SSSP(y, min(d + w)) :- SSSP(x, d), Edge(x, y, w).
+
+// Stratum 2: uses SSSP (must wait for stratum 1)
+FarNode(x) :- SSSP(x, d), d > 1000.
+```
+
+`FarNode` reads `SSSP`, which uses aggregation internally. The compiler makes sure `SSSP` reaches fixpoint before `FarNode` runs.

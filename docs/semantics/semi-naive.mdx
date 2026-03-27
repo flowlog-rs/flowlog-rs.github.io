@@ -1,0 +1,131 @@
+---
+sidebar_position: 2
+title: Semi-Naive Evaluation
+---
+
+import StyledFlowLog from '../../src/components/StyledFlowLog';
+
+# Semi-Naive Evaluation
+
+This is what <StyledFlowLog /> actually uses. If you read the [naive evaluation](naive) page, you saw the problem: most of each round is redundant re-derivation. Semi-naive fixes this with one elegant idea.
+
+## The key insight
+
+> If a fact was derivable in round *n*, you already derived it in round *n*. So in round *n+1*, you only need to consider facts that are **new from round *n***.
+
+A new derivation in round *n+1* can only happen if it involves at least one fact from Δₙ (delta facts new in round *n*). Everything that could be derived purely from older facts was already derived in earlier rounds.
+
+## The algorithm
+
+The engine maintains two sets for each recursive relation:
+- **Full set** — everything derived so far.
+- **Delta (Δ)** — only the facts that were new in the last round.
+
+Each round, rules are evaluated using **at least one delta input**. Old-on-old combinations are skipped entirely:
+
+```
+round 1: apply rules to EDB                           → Δ₁ = new facts
+round 2: apply rules using Δ₁ (+ full sets for joins) → Δ₂ = new facts
+round 3: apply rules using Δ₂ (+ full sets for joins) → Δ₃ = new facts
+...until Δₙ is empty
+```
+
+## Walkthrough
+
+Same example, same edges `1→2` and `2→3`:
+
+```flowlog
+Reach(x, y) :- Edge(x, y).
+Reach(x, z) :- Reach(x, y), Edge(y, z).
+```
+
+**Round 1** — Start from EDB (`Edge` facts):
+- Rule 1: `Edge(1,2)` → `Reach(1,2)`. `Edge(2,3)` → `Reach(2,3)`.
+- Δ₁ = `{Reach(1,2), Reach(2,3)}`
+
+**Round 2** — Only use **Δ₁** for recursive joins:
+- Rule 1: no new `Edge` facts, skip. *(not redundant — just skipped)*
+- Rule 2: join **Δ₁** with `Edge`. `Reach(1,2)` + `Edge(2,3)` → `Reach(1,3)`. `Reach(2,3)` + `Edge(3,?)` → no match.
+- Δ₂ = `{Reach(1,3)}`
+
+**Round 3** — Only use **Δ₂** for recursive joins:
+- Rule 2: join **Δ₂** with `Edge`. `Reach(1,3)` + `Edge(3,?)` → no match.
+- Δ₃ = `{}`. **Fixpoint.**
+
+Compare with naive: same result, but we never re-derived `Reach(1,2)` or `Reach(2,3)` in later rounds. Zero redundant work.
+
+## Why it's correct
+
+The argument is simple. Any derivation in round *n+1* must use at least one body atom. If *all* body atoms were available before round *n*, then the derivation would have happened in round *n* or earlier. So any *genuinely new* derivation in round *n+1* must involve at least one fact from Δₙ. That's exactly what semi-naive evaluates.
+
+## Two-atom rules
+
+When a rule joins two recursive relations, think of it as decomposing `A ⋈ B`. At each round, both grow by their deltas:
+
+```
+(A_old + ΔA) ⋈ (B_old + ΔB)
+```
+
+Expanding gives four terms:
+
+```
+A_old ⋈ B_old       ← already computed last round, skip!
+ΔA    ⋈ B_old       ← new left,  old right
+A_old ⋈ ΔB          ← old left,  new right
+ΔA    ⋈ ΔB          ← new left,  new right
+```
+
+Skip the first, compute the other three. That's it.
+
+## Generalizing: three atoms and beyond
+
+What about a rule with three body atoms? Or five? Naively expanding `(A_old + ΔA) ⋈ (B_old + ΔB) ⋈ (C_old + ΔC)` gives 2³ = 8 terms, minus the all-old term = 7. For k atoms, that's 2ᵏ - 1 terms. Exponential blowup — not great.
+
+The standard trick: instead of enumerating all combinations, produce exactly **k variants** (one per atom). Each variant says "atom *i* is the *first* one contributing new facts":
+
+```
+variant 1:  ΔA    ⋈ B_new ⋈ C_new       ← A is the first new atom
+variant 2:  A_old ⋈ ΔB    ⋈ C_new       ← B is the first new atom
+variant 3:  A_old ⋈ B_old ⋈ ΔC          ← C is the first new atom
+```
+
+Where `X_new = X_old ∪ ΔX` (the full current set).
+
+The pattern: variant *i* uses **ΔX** at position *i*, **old** for everything *before* i, and **new** (old + delta) for everything *after* i. This partitions all 2ᵏ - 1 non-redundant terms into exactly k groups — no double counting, nothing missed.
+
+### Why this works
+
+Each variant "commits" to atom *i* being the leftmost position that contributes a delta fact. Atoms before *i* use old (they're *not* the first new one), and atoms after *i* use new (doesn't matter — they might or might not be new, variant *i* only cares that position *i* is first).
+
+The union of all k variants covers every combination that has at least one delta — which is exactly what we need. And k variants is linear, not exponential.
+
+### Example: star join
+
+A 4-way star join (common in graph analytics):
+
+```flowlog
+Result(a, b, c, d) :- R(x, a), S(x, b), T(x, c), U(x, d).
+```
+
+Semi-naive produces 4 variants:
+```
+variant 1:  ΔR    ⋈ S_new ⋈ T_new ⋈ U_new
+variant 2:  R_old ⋈ ΔS    ⋈ T_new ⋈ U_new
+variant 3:  R_old ⋈ S_old ⋈ ΔT    ⋈ U_new
+variant 4:  R_old ⋈ S_old ⋈ T_old ⋈ ΔU
+```
+
+4 joins instead of 15 (2⁴ - 1). For a 10-atom rule, that's 10 vs 1023. The savings get better as rules get wider.
+
+## Putting it together
+
+When you run a <StyledFlowLog /> program, here's what happens:
+
+1. **Parse & stratify** — the compiler analyzes dependencies and assigns strata.
+2. **For each stratum** (in order):
+   - Load input facts for this stratum's relations.
+   - Apply semi-naive evaluation until fixpoint.
+   - Freeze the results — downstream strata can read them.
+3. **Output** — write `.output` relations and print `.printsize` counts.
+
+All of this is compiled into a Differential Dataflow executable. The semi-naive deltas map naturally to Differential's change-tracking — which is why incremental mode comes almost for free. The engine was already thinking in terms of "what's new."

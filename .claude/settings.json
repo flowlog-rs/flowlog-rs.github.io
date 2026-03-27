@@ -21,6 +21,9 @@
       "Bash(source ~/.nvm/nvm.sh)",
       "Bash(nvm use:*)",
       "Bash(npx docusaurus:*)"
+    ],
+    "additionalDirectories": [
+      "/home/zyu379/flowlog-rs.github.io/docs"
     ]
   }
 }
