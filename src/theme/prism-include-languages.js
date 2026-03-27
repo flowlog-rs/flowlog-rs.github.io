@@ -26,8 +26,8 @@ export default function prismIncludeLanguages(PrismObject) {
     },
     keyword: [
       {
-        // Datalog/FlowLog directives (.decl, .input, .output, .printsize, .extern)
-        pattern: /\.(?:decl|input|output|printsize|extern)\b/,
+        // Directives (.decl, .input, .output, .printsize, .extern, .include)
+        pattern: /\.(?:decl|input|output|printsize|extern|include)\b/,
       },
       {
         // Rule separator
@@ -35,11 +35,23 @@ export default function prismIncludeLanguages(PrismObject) {
       },
       {
         // Built-in types
-        pattern: /\b(?:int8|int16|int32|int64|string|bool)\b/,
+        pattern: /\b(?:int8|int16|int32|int64|uint8|uint16|uint32|uint64|f32|f64|string|bool)\b/,
       },
       {
         // Aggregate operators
         pattern: /\b(?:count|COUNT|sum|SUM|min|MIN|max|MAX|average|AVG)\b/,
+      },
+      {
+        // Extended semantics keywords
+        pattern: /\b(?:fixpoint|loop|while|until)\b/,
+      },
+      {
+        // Iteration counter
+        pattern: /@it\b/,
+      },
+      {
+        // IO parameters
+        pattern: /\b(?:IO|filename|delimiter)\b/,
       },
       {
         // Extern function keyword
@@ -47,7 +59,7 @@ export default function prismIncludeLanguages(PrismObject) {
       },
     ],
     boolean: /\b(?:True|False)\b/,
-    number: /\b\d+\b/,
+    number: /\b\d+(?:\.\d+)?\b/,
     operator: /[+\-*\/%]|[<>]=?|!=|=|!|\b(?:cat)\b/,
     punctuation: /[()\[\]{},.:]/,
   };
