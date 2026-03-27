@@ -18,7 +18,7 @@ Path(x, y) :- Edge(x, y).
 Path(x, z) :- Path(x, y), Edge(y, z).
 ```
 
-When a variable shows up in multiple atoms of the same rule, it acts as a **join key** — FlowLog only keeps combinations where that variable has the same value everywhere. In the second rule above, `y` must match across `Path` and `Edge`.
+When a variable shows up in multiple atoms of the same rule, it acts as a **join key** — <StyledFlowLog /> only keeps combinations where that variable has the same value everywhere. In the second rule above, `y` must match across `Path` and `Edge`.
 
 ## Constants
 

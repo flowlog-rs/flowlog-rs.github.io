@@ -6,7 +6,7 @@ import StyledFlowLog from '@site/src/components/StyledFlowLog';
 
 # Language
 
-<StyledFlowLog /> is a Datalog-based language that compiles to efficient Differential Dataflow executables. A program is a <code>.dl</code> file with <b>declarations</b> and <b>rules</b> — you describe <i>what</i> you want, and FlowLog figures out <i>how</i> to compute it.
+<StyledFlowLog /> is a Datalog-based language that compiles to efficient Differential Dataflow executables. A program is a <code>.dl</code> file with <b>declarations</b> and <b>rules</b> — you describe <i>what</i> you want, and <StyledFlowLog /> figures out <i>how</i> to compute it.
 
 Here's a complete program in 10 lines:
 

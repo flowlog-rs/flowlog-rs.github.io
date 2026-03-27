@@ -31,5 +31,5 @@ Simple enough. The question is *how* you get there — and how much redundant wo
 ## This section covers
 
 - [**Naive Evaluation**](naive) — The simple baseline: re-derive everything each round. Easy to understand, terrible at scale.
-- [**Semi-Naive Evaluation**](semi-naive) — What FlowLog actually uses: only process what's new each round.
+- [**Semi-Naive Evaluation**](semi-naive) — What <StyledFlowLog /> actually uses: only process what's new each round.
 - [**Stratification**](stratification) — How the compiler layers rules so negation and aggregation see fully computed inputs.

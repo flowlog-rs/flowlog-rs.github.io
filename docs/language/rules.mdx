@@ -48,7 +48,7 @@ A positive atom in the body says "this tuple must exist":
 Reach(y) :- Reach(x), Arc(x, y).
 ```
 
-Both `Reach(x)` and `Arc(x, y)` are positive atoms. The shared variable `x` is a join key — FlowLog only matches rows where `x` has the same value in both relations.
+Both `Reach(x)` and `Arc(x, y)` are positive atoms. The shared variable `x` is a join key — <StyledFlowLog /> only matches rows where `x` has the same value in both relations.
 
 ### Negative atoms
 
@@ -63,7 +63,7 @@ Isolated(x) :- Node(x), !Edge(x, _).
 
 ## Joins
 
-When a variable appears in multiple body atoms, it's a join. FlowLog keeps only the combinations where that variable matches:
+When a variable appears in multiple body atoms, it's a join. <StyledFlowLog /> keeps only the combinations where that variable matches:
 
 ```flowlog
 // y joins Edge and Node — only matching pairs survive
@@ -95,4 +95,4 @@ Reach(y) :- Source(y).
 Reach(y) :- Reach(x), Arc(x, y).
 ```
 
-Think of it as: each rule contributes rows, and FlowLog takes the union. No duplicates — relations are sets.
+Think of it as: each rule contributes rows, and <StyledFlowLog /> takes the union. No duplicates — relations are sets.

@@ -91,7 +91,7 @@ variant 3:  A_old ⋈ B_old ⋈ ΔC          ← C is the first new atom
 
 Where `X_new = X_old ∪ ΔX` (the full current set).
 
-The pattern: variant *i* uses **ΔX** at position *i*, **old** for everything *before* i, and **new** (old + delta) for everything *after* i. This partitions all 2ᵏ - 1 non-redundant terms into exactly k groups — no double counting, nothing missed.
+The pattern: variant *i* uses **ΔX** at position *i*, **old** for everything *before* i, and **new** (old + delta) for everything *after* i. This partitions all 2ᵏ - 1 non-redundant terms into exactly k groups, no double counting, nothing missed.
 
 ### Why this works
 
@@ -117,15 +117,40 @@ variant 4:  R_old ⋈ S_old ⋈ T_old ⋈ ΔU
 
 4 joins instead of 15 (2⁴ - 1). For a 10-atom rule, that's 10 vs 1023. The savings get better as rules get wider.
 
-## Putting it together
+## Inside FlowLog: from theory to Differential Dataflow
 
-When you run a <StyledFlowLog /> program, here's what happens:
+The theory above is the mental model. Now let's look at what actually happens when <StyledFlowLog /> compiles and runs a recursive program.
 
-1. **Parse & stratify** — the compiler analyzes dependencies and assigns strata.
-2. **For each stratum** (in order):
-   - Load input facts for this stratum's relations.
-   - Apply semi-naive evaluation until fixpoint.
-   - Freeze the results — downstream strata can read them.
-3. **Output** — write `.output` relations and print `.printsize` counts.
+### Variable and feedback in Differential Dataflow
 
-All of this is compiled into a Differential Dataflow executable. The semi-naive deltas map naturally to Differential's change-tracking — which is why incremental mode comes almost for free. The engine was already thinking in terms of "what's new."
+Differential Dataflow tracks **changes** — every tuple carries a diff (`+1` for insert, `-1` for retract). Operators like `join` and `filter` propagate only changes, not full sets. This is the key to efficiency.
+
+For recursion, DD provides `Variable` — a special collection that can feed its output back into its own input within an `iterate` scope:
+
+```
+iterate(|inner| {
+    // 1. Create a Variable — starts empty
+    let reach = Variable::new(inner);
+
+    // 2. Build the dataflow: join, filter, union...
+    let new_reach = /* rules compiled into DD operators, reading from `reach` */;
+
+    // 3. Feed results back
+    reach.set(&new_reach);
+
+    // 4. Return the final collection
+    reach.leave()
+})
+```
+
+Each iteration of the `iterate` scope, `reach` contains the *accumulated* facts so far. DD's operators only process the *changes* since the last iteration — if `reach` grew by 2 new facts, only those 2 flow through the joins. Facts that were already present produce zero-diff changes and are naturally ignored.
+
+This is semi-naive evaluation expressed as dataflow. The Δ sets from the theory correspond to the changes DD propagates each iteration. The "old" sets correspond to the accumulated `Variable` state. The `threshold`/dedup step ensures that a fact derived again in a later round doesn't get re-emitted — it's already in the `Variable` with diff `+1`, so re-deriving it produces a net-zero change.
+
+### When the iterate scope stops
+
+The loop terminates when no operator produces any new changes in an iteration — the DD equivalent of "Δ = ∅." At that point, `leave()` extracts the final accumulated collection from the scope.
+
+### Why incremental mode comes for free
+
+DD was designed for incremental computation. The same dataflow graph that runs to fixpoint on initial data can also process *updates* to input relations. When you insert or retract facts in incremental mode, DD propagates just those changes through the existing graph — including through recursive `Variable` loops. No recompilation, no re-evaluation from scratch. The "only process what's new" principle applies to both the inner fixpoint loop and outer input updates.

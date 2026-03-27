@@ -30,7 +30,7 @@ Every column needs an explicit [type](datatype). No column can be left untyped.
 | `.output`    | Write the relation's final contents to a file (or stderr) |
 | `.printsize` | Print the tuple count after execution |
 
-The key idea: a relation with `.input` can also appear in rule heads and carry `.output`. You just annotate what goes in and what comes out — FlowLog doesn't force an "input-only vs computed-only" split.
+The key idea: a relation with `.input` can also appear in rule heads and carry `.output`. You just annotate what goes in and what comes out — <StyledFlowLog /> doesn't force an "input-only vs computed-only" split.
 
 ```flowlog
 .decl Reach(x: int32, y: int32)

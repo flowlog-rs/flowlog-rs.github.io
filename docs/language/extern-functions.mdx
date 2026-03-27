@@ -11,7 +11,7 @@ Pure Datalog can't do everything. When you need custom logic — hashing, string
 
 ## Declaring a UDF
 
-Use `.extern fn` to tell FlowLog about your function's signature:
+Use `.extern fn` to tell <StyledFlowLog /> about your function's signature:
 
 ```flowlog
 .extern fn hash_pair(x: int32, y: int32) -> int64

@@ -122,6 +122,6 @@ Route(x, y, c) :- Edge(x, y), Weight(x, y, c).
 Route(x, z, c) :- Route(x, y, _), Edge(y, z), Weight(y, z, c).
 ```
 
-### What FlowLog does *not* check
+### What <StyledFlowLog /> does <i>not</i> check
 
-Integer and float constant overflow (e.g., stuffing `999` into a `uint8`) and comparison type mismatches (e.g., `int32 > int64`) are **not** caught by FlowLog. The downstream Rust compiler will catch these for you — so you'll still get an error, just a less friendly one.
+Integer and float constant overflow (e.g., stuffing `999` into a `uint8`) and comparison type mismatches (e.g., `int32 > int64`) are <b>not</b> caught by <StyledFlowLog />. The downstream Rust compiler will catch these for you — so you'll still get an error, just a less friendly one.

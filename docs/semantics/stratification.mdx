@@ -26,7 +26,7 @@ The same issue applies to aggregation. You can't compute `min(cost)` while new, 
 
 ## The solution: layers (strata)
 
-<StyledFlowLog /> splits rules into ordered layers called **strata**. Each stratum runs to fixpoint before the next one starts. The rule: if relation A **negates** or **aggregates** over relation B, then B must be in an earlier stratum.
+<StyledFlowLog /> splits rules into ordered layers called <b>strata</b>. Each stratum runs to fixpoint before the next one starts. The rule: if relation A <b>negates</b> or <b>aggregates</b> over relation B, then B must be in an earlier stratum.
 
 The compiler figures this out automatically:
 
@@ -69,33 +69,42 @@ Strata 1 and 2 are independent and could even run in parallel. Stratum 3 must wa
 
 Each stratum runs [semi-naive evaluation](semi-naive) independently:
 
-1. **Load inputs** — EDB facts and results from earlier strata.
+1. **Load inputs** — input facts and results from earlier strata.
 2. **Semi-naive to fixpoint** — apply rules, track deltas, iterate until Δ = ∅.
 3. **Freeze** — the results are now final. Later strata can safely negate or aggregate over them.
 
-## Cycles through negation = error
+## Negation in recursion
 
-What if two relations negate each other?
+What if negation appears inside a recursive cycle?
 
 ```flowlog
-// This won't compile!
 A(x) :- Node(x), !B(x).
 B(x) :- Node(x), !A(x).
 ```
 
-A needs B to be finished, and B needs A to be finished. There's no valid ordering — it's a chicken-and-egg problem. <StyledFlowLog /> rejects this at compile time. It's not a limitation of the implementation; it's a fundamental ambiguity in Datalog semantics. (If you're curious, look up "well-founded semantics" for one way to give meaning to such programs — but FlowLog sticks with the cleaner stratified approach.)
+A needs B to be finished, and B needs A to be finished — a chicken-and-egg problem. There's no valid stratification order.
 
-## Aggregation works the same way
+<StyledFlowLog /> will <b>warn</b> about this but still compile the program. The semantics become your responsibility: the engine evaluates the rules to a fixpoint, but the result may depend on evaluation order and may not match well-founded or stable-model semantics. If you know what you're doing (e.g., you've proven your program converges), go for it — just be aware that the compiler can't guarantee correctness here.
 
-Aggregation edges are treated identically to negation edges for stratification purposes. If a rule aggregates over relation B, then B's stratum must complete first:
+## Aggregation in recursion
+
+Same story for aggregation inside a recursive cycle:
 
 ```flowlog
-// Stratum 1: compute shortest paths
 SSSP(x, min(0)) :- Source(x).
 SSSP(y, min(d + w)) :- SSSP(x, d), Edge(x, y, w).
-
-// Stratum 2: uses SSSP (must wait for stratum 1)
-FarNode(x) :- SSSP(x, d), d > 1000.
 ```
 
-`FarNode` reads `SSSP`, which uses aggregation internally. The compiler makes sure `SSSP` reaches fixpoint before `FarNode` runs.
+Here `SSSP` aggregates over itself — `min` appears in the head of a recursive rule. Strictly speaking, this breaks stratification (the aggregate reads a relation that's still being computed).
+
+<StyledFlowLog /> allows this with a <b>warning</b>. In practice, monotone aggregates like `min` and `max` converge to the correct fixpoint because the aggregate value can only move in one direction. But the compiler doesn't verify monotonicity — it trusts you. If you use a non-monotone aggregate (like `count` or `average`) recursively, the result may not be meaningful.
+
+## When it's safe vs when to be careful
+
+| Pattern | Safe? | Notes |
+|---------|-------|-------|
+| Negation across strata | Yes | Fully stratified, compiler handles it |
+| Aggregation across strata | Yes | Same — earlier stratum finishes first |
+| `min`/`max` in recursion | Usually | Monotone, converges in practice — but you own the proof |
+| `count`/`sum`/`average` in recursion | Risky | Non-monotone — fixpoint may not be meaningful |
+| Negation in recursive cycle | Risky | No valid stratification — result is evaluation-order dependent |
