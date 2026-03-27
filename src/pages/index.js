@@ -20,13 +20,18 @@ const KEY_FEATURES = [
     ),
   },
   {
+    title: 'Compile to Executable',
+    description:
+      'Compile Datalog programs directly into standalone binary executables — no intermediate Rust project to manage.',
+  },
+  {
+    title: 'Four Execution Modes',
+    description: 'Choose from datalog-batch, datalog-inc, extend-batch, and extend-inc to match your workload semantics.',
+  },
+  {
     title: 'Robustness First',
     description:
       'Configure worst-case optimal query plans against runtime data skew.',
-  },
-  {
-    title: 'Dual Modes',
-    description: 'Optimize under both batch and incremental execution modes.',
   },
   {
     title: 'Efficiency',
@@ -36,11 +41,7 @@ const KEY_FEATURES = [
   {
     title: 'Extensibility',
     description:
-      'Easy to extend to any relational programs in operational semantics.',
-  },
-  {
-    title: 'Outlook',
-    description: 'Many optimization opportunities left on the table.',
+      'Extend with loop blocks, user-defined functions, and modular .include files.',
   },
 ];
 
@@ -103,14 +104,15 @@ export default function Home() {
                 rel="noreferrer">
                 Differential Dataflow
               </a>
-              . You write Datalog queries in{' '}
+
+              . Write Datalog programs in{' '}
               <a
                 href="https://souffle-lang.github.io/"
                 target="_blank"
                 rel="noreferrer">
                 Soufflé
               </a>{' '}
-              and FlowLog efficiently maintains the query results incrementally.
+              syntax and FlowLog compiles them into efficient, scalable executables that maintain query results incrementally.
             </p>
             <div className={styles.heroActions}>
               <Link

@@ -3,7 +3,7 @@ sidebar_position: 1
 title: Reachability Demo
 ---
 
-The `example/reach.dl` program computes nodes reachable from a seed set.
+The `example/graph_analysis/reach.dl` program computes nodes reachable from a seed set.
 
 ```flowlog
 .decl Source(id: int32)
@@ -19,17 +19,8 @@ Reach(y) :- Source(y).
 Reach(y) :- Reach(x), Arc(x, y).
 ```
 
-1. **Generate the executable**
+1. **Prepare sample data**
    ```bash
-   cargo run -p generator -- example/reach.dl -F reach -o reach_flowlog -D -
-   ```
-   - `-F reach` points the generator at the directory holding `Source.csv` and `Arc.csv`.
-   - `-o reach_flowlog` names the generated Cargo project (written to `../reach_flowlog`).
-   - `-D -` prints IDB tuples to stderr instead of writing CSVs.
-
-2. **Prepare sample data**
-   ```bash
-   cd ../reach_flowlog
    mkdir -p reach
    cat <<'EOF' > reach/Source.csv
    1
@@ -41,8 +32,16 @@ Reach(y) :- Reach(x), Arc(x, y).
    EOF
    ```
 
-3. **Run the generated project**
+2. **Compile into an executable**
    ```bash
-   cargo run --release -- -w 4
+   flowlog example/graph_analysis/reach.dl -F reach -o reach_bin -D -
+   ```
+   - `-F reach` points the compiler at the directory holding `Source.csv` and `Arc.csv`.
+   - `-o reach_bin` names the output executable.
+   - `-D -` prints IDB tuples and sizes to stderr instead of writing CSVs.
+
+3. **Run the generated executable**
+   ```bash
+   ./reach_bin -w 4
    ```
    Adjust `-w` to control the number of Timely workers.

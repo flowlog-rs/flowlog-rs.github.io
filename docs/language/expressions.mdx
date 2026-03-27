@@ -1,43 +1,41 @@
 ---
-sidebar_position: 4
-title: Arithmetic & Comparisons
+sidebar_position: 5
+title: Expressions
 ---
 
 import StyledFlowLog from '../../src/components/StyledFlowLog';
 
-# Arithmetic & Comparisons
+# Expressions
 
-<StyledFlowLog /> supports arithmetic expressions and comparison expressions inside rule bodies and heads.
+Rules aren't limited to just pattern matching — you can do arithmetic, concatenate strings, and compare values.
 
-## Arithmetic expressions
+## Arithmetic
 
-Arithmetic expressions combine variables and constants with operators. They are parsed **left-to-right without precedence** — `x + y * z` is evaluated as `(x + y) * z`.
+### Integer operators
 
-### Operators
+These work on all integer types (`int8` through `int64`, `uint8` through `uint64`):
 
-#### Integer operators
+| Operator | Description      | Example   |
+|----------|------------------|-----------|
+| `+`      | Addition         | `x + 1`   |
+| `-`      | Subtraction      | `x - y`   |
+| `*`      | Multiplication   | `x * 2`   |
+| `/`      | Integer division | `x / 3`   |
+| `%`      | Modulo           | `x % 2`   |
 
-These operators apply to integer types (`int8`, `int16`, `int32`, `int64`):
+**Heads up:** expressions are parsed **left-to-right without precedence**. So `x + y * z` means `(x + y) * z`, not `x + (y * z)`. When in doubt, use parentheses.
 
-| Operator | Description            | Example       |
-|----------|------------------------|---------------|
-| `+`      | Addition               | `x + 1`       |
-| `-`      | Subtraction            | `x - y`       |
-| `*`      | Multiplication         | `x * 2`       |
-| `/`      | Integer division       | `x / 3`       |
-| `%`      | Modulo (remainder)     | `x % 2`       |
+### String concatenation
 
-#### String operator
+The `cat` operator glues two strings together:
 
-The `cat` operator concatenates two `string` values:
+| Operator | Description          | Example     |
+|----------|----------------------|-------------|
+| `cat`    | String concatenation | `x cat y`   |
 
-| Operator | Description            | Example       |
-|----------|------------------------|---------------|
-| `cat`    | String concatenation   | `x cat y`     |
+### In rule heads
 
-### Usage in rule heads
-
-Arithmetic expressions can appear in the head of a rule:
+Compute derived values directly in the head:
 
 ```flowlog
 .decl Arc(src: int32, dst: int32, weight: int32)
@@ -46,40 +44,35 @@ Arithmetic expressions can appear in the head of a rule:
 DoubleWeight(x, y, w * 2) :- Arc(x, y, w).
 ```
 
-### Usage in rule bodies
+### In rule bodies
 
-Arithmetic expressions are used in comparisons within rule bodies:
+Use expressions inside comparisons to filter:
 
 ```flowlog
-// Nodes ordered by a composite key
-laterChild(pCtr, pN, c2Ctr, c2N) :-
-  insert(c1Ctr, c1N, pCtr, pN),
-  insert(c2Ctr, c2N, pCtr, pN),
-  c1Ctr * 10 + c1N > c2Ctr * 10 + c2N.
+Heavy(x, y) :- Arc(x, y, w), w * 2 > 100.
 ```
 
-## Comparison expressions
+## Comparisons
 
-Comparisons test a condition between two arithmetic expressions. They appear as predicates in rule bodies.
+Comparisons test a condition between two expressions. They appear as predicates in rule bodies:
 
-### Operators
+| Operator | Description      | Example     |
+|----------|------------------|-------------|
+| `=`      | Equal            | `x = y`     |
+| `!=`     | Not equal        | `x != y`    |
+| `>`      | Greater than     | `x > 0`     |
+| `<`      | Less than        | `x < 100`   |
+| `>=`     | Greater or equal | `x >= y`    |
+| `<=`     | Less or equal    | `x <= y`    |
 
-| Operator | Description         | Example     |
-|----------|---------------------|-------------|
-| `=`      | Equal               | `x = y`     |
-| `!=`     | Not equal           | `x != y`    |
-| `>`      | Greater than        | `x > 0`     |
-| `<`      | Less than           | `x < 100`   |
-| `>=`     | Greater or equal    | `x >= y`    |
-| `<=`     | Less or equal       | `x <= y`    |
+### Example: same-generation query
 
-### Example
+Find pairs of nodes that share a common ancestor but aren't the same node:
 
 ```flowlog
 .decl Arc(src: int32, dest: int32)
 .decl Sg(src: int32, dest: int32)
 
-// Same-generation query: x and y share a common ancestor, and x ≠ y
 Sg(x, y) :- Arc(a, x), Arc(a, y), x != y.
 Sg(x, y) :- Arc(a, x), Sg(a, b), Arc(b, y).
 ```

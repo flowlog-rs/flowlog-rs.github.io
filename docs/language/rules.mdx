@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 4
 title: Rules
 ---
 
@@ -7,111 +7,92 @@ import StyledFlowLog from '../../src/components/StyledFlowLog';
 
 # Rules
 
-Rules are the computation core of a <StyledFlowLog /> program. Each rule derives new tuples for an IDB [relation](relations) from existing relations.
+Rules are where the computation happens. Each rule says "if these conditions hold, derive these new facts."
 
-## Syntax
+## Anatomy of a rule
 
-A rule has a **head** (the relation being derived) and a **body** (a comma-separated list of predicates), separated by `:-` and terminated with a period:
+A rule has a **head** (what to derive) and a **body** (the conditions), separated by `:-` and ending with a period:
 
 ```flowlog
-Head(args...) :- body_predicate1, body_predicate2, ... .
+Head(args...) :- body1, body2, ... .
 ```
 
-Example — transitive closure:
+The classic example — transitive closure:
 
 ```flowlog
 .decl Arc(x: int32, y: int32)
-.input Arc(IO="file", filename="Arc.csv", delimiter=",")
-
 .decl Tc(x: int32, y: int32)
-.printsize Tc
 
 // Base case: every arc is in the transitive closure
 Tc(x, y) :- Arc(x, y).
 
-// Recursive case: extend reachability by one hop
+// Recursive case: extend by one hop
 Tc(x, y) :- Tc(x, z), Arc(z, y).
 ```
 
 ## Atoms
 
-An **atom** is a reference to a relation with arguments. Arguments can be variables, constants, or the placeholder `_`:
+An **atom** is a reference to a relation with arguments. Arguments can be variables, constants, or the `_` placeholder:
 
 ```flowlog
-Edge(x, y)          // two variables
-Edge(1, y)          // constant + variable
-Edge(_, y)          // placeholder + variable
+Edge(x, y)      // two variables
+Edge(1, y)      // constant + variable
+Edge(_, y)      // don't care about first column
 ```
-
-The placeholder `_` matches any value without binding a variable name.
 
 ### Positive atoms
 
-Positive atoms in the body require matching tuples to exist:
+A positive atom in the body says "this tuple must exist":
 
 ```flowlog
 Reach(y) :- Reach(x), Arc(x, y).
 ```
 
-Here, `Reach(x)` and `Arc(x, y)` are positive atoms. The variable `x` acts as a **join key** — it must have the same value in both relations.
+Both `Reach(x)` and `Arc(x, y)` are positive atoms. The shared variable `x` is a join key — FlowLog only matches rows where `x` has the same value in both relations.
 
 ### Negative atoms
 
-Prefix an atom with `!` to negate it. A negated atom succeeds when **no** matching tuple exists:
+Prefix with `!` to negate — "this tuple must **not** exist":
 
 ```flowlog
-.decl Arc(src: int32, dst: int32)
-.decl Source(x: int32)
-.decl BipartiteViolation(x: int32)
-.decl Zero(x: int32)
-.decl One(x: int32)
-
-Zero(x) :- Source(x).
-One(y) :- Arc(x, y), Zero(x).
-Zero(y) :- Arc(x, y), One(x).
-
-// A node that is both Zero and One violates bipartiteness
-BipartiteViolation(x) :- One(x), Zero(x).
+// Nodes with no outgoing edges
+Isolated(x) :- Node(x), !Edge(x, _).
 ```
 
-Another example using negation:
+<StyledFlowLog /> uses **stratified negation**: the negated relation must be fully computed before the rule that negates it runs. The compiler figures out the right evaluation order automatically. If there's a circular dependency through negation, it'll tell you.
+
+## Joins
+
+When a variable appears in multiple body atoms, it's a join. FlowLog keeps only the combinations where that variable matches:
 
 ```flowlog
-// Nodes with no outgoing first-child link
-nextElem(prev, next) :- !hasChild(prev, _), nextSiblingAnc(prev, next).
-```
-
-<StyledFlowLog /> uses **stratified negation** — negated relations must not depend on the rule's head through a cycle. The compiler automatically computes strata and schedules evaluation accordingly.
-
-## Variables and joins
-
-Variables that appear in multiple atoms in the same rule body serve as **join keys**. <StyledFlowLog /> requires join variables to have compatible types across all atoms they appear in:
-
-```flowlog
-// x joins Edge and Node; y joins Edge and Node
+// y joins Edge and Node — only matching pairs survive
 Match(x, label) :- Edge(x, y), Node(y, label).
 ```
 
-## Constants
+Join variables must have compatible [types](datatype) across all atoms they appear in.
 
-Integer, string, and boolean constants can appear in atom arguments:
+## Constants in rules
+
+Integer, string, and boolean constants work anywhere — heads, bodies, you name it:
 
 ```flowlog
-Edge(1, 2)              // integer constants
-Name(1, "alice")        // string constant
-Flag(1, True)           // boolean constant (capitalized)
+Edge(1, 2).              // fact with integer constants
+Name(1, "alice").        // string constant
+Active(x) :- Flag(x, True).  // boolean constant in body
 ```
 
-Boolean literals use `True` and `False` (capitalized).
+Remember: boolean literals are capitalized (`True`, `False`).
 
 ## Multiple rules
 
-Multiple rules can derive tuples for the same IDB relation. The result is the **union** of all derived tuples:
+Multiple rules can derive facts for the same relation. The result is the **union** of everything derived:
 
 ```flowlog
 .decl Reach(id: int32)
 
-// Two rules both contribute to Reach
 Reach(y) :- Source(y).
 Reach(y) :- Reach(x), Arc(x, y).
 ```
+
+Think of it as: each rule contributes rows, and FlowLog takes the union. No duplicates — relations are sets.

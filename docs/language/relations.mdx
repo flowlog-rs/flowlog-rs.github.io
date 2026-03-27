@@ -1,84 +1,106 @@
 ---
-sidebar_position: 2
-title: Relations & Directives
+sidebar_position: 3
+title: Relations
 ---
 
 import StyledFlowLog from '../../src/components/StyledFlowLog';
 
-# Relations & Directives
+# Relations
 
-Relations are the core data structures in <StyledFlowLog />. Every relation is declared with `.decl` and annotated with I/O directives that determine whether it holds input data or computed results.
+Relations are tables — they hold rows of typed data. Every relation starts with a `.decl` and can be annotated with `.input`, `.output`, or `.printsize` to control how data flows in and out.
 
-## Declaring relations
+## Declaring a relation
 
-Use `.decl` to define a relation's schema. Each column has a name and a [data type](datatype):
+Use `.decl` to define a relation's schema — its name and the type of each column:
 
 ```flowlog
 .decl Edge(src: int32, dst: int32)
 .decl Person(id: int64, name: string, active: bool)
 ```
 
-## EDB vs IDB relations
+Every column needs an explicit [type](datatype). No column can be left untyped.
 
-<StyledFlowLog /> distinguishes two kinds of relations:
+## I/O annotations
 
-- **EDB (Extensional Database)** — input relations whose data comes from external files. Marked with `.input`.
-- **IDB (Intensional Database)** — computed relations whose contents are derived by [rules](rules). Marked with `.output` or `.printsize`.
+`.input`, `.output`, and `.printsize` are **annotations** — they're not mutually exclusive. Stick any combination on a relation:
 
-A relation cannot be both EDB and IDB. If a relation has an `.input` directive, it cannot also have `.output` or `.printsize`, and vice versa.
+| Annotation   | What it does |
+|--------------|-------------|
+| `.input`     | Load facts from a CSV file (or the interactive shell in incremental mode) |
+| `.output`    | Write the relation's final contents to a file (or stderr) |
+| `.printsize` | Print the tuple count after execution |
 
-## `.input` directive
+The key idea: a relation with `.input` can also appear in rule heads and carry `.output`. You just annotate what goes in and what comes out — FlowLog doesn't force an "input-only vs computed-only" split.
 
-The `.input` directive tells the compiler how to read data for an EDB relation:
+```flowlog
+.decl Reach(x: int32, y: int32)
+.input Reach(IO="file", filename="Reach.csv", delimiter=",")
+
+// Extend loaded seed pairs with transitive closure
+Reach(x, z) :- Reach(x, y), Reach(y, z).
+
+.output Reach
+```
+
+Here `Reach` loads seed pairs from CSV, a rule derives the transitive closure on top, and `.output` writes the full result.
+
+## Inline facts
+
+You can write facts directly in the source file:
+
+```flowlog
+.decl Edge(src: int32, dst: int32)
+Edge(1, 2).
+Edge(2, 3).
+Edge(3, 4).
+```
+
+These get merged with any file-loaded data. Handy for small seed sets or test fixtures.
+
+## `.input` in detail
 
 ```flowlog
 .decl Arc(x: int32, y: int32)
 .input Arc(IO="file", filename="Arc.csv", delimiter=",")
 ```
 
-Parameters:
+| Parameter   | Description                     | Example              |
+|-------------|---------------------------------|----------------------|
+| `IO`        | `"file"` for CSV, `"cmd"` for interactive shell | `IO="file"` |
+| `filename`  | Path to the CSV file            | `filename="Arc.csv"` |
+| `delimiter` | Column separator                | `delimiter=","`      |
 
-| Parameter   | Description                          | Example         |
-|-------------|--------------------------------------|-----------------|
-| `IO`        | I/O method (currently `"file"`)      | `IO="file"`     |
-| `filename`  | Path to the input CSV file           | `filename="Arc.csv"` |
-| `delimiter` | Column separator                     | `delimiter=","` |
+The compiler flag `-F <DIR>` sets the base directory for `filename`. So `-F data` + `filename="Arc.csv"` reads `data/Arc.csv`.
 
-When running the compiler with `-F <DIR>`, the `filename` is resolved relative to that directory.
+Use `IO="cmd"` for incremental mode — inputs come from the interactive shell instead of files.
 
-## `.output` directive
-
-The `.output` directive marks an IDB relation for result output:
+## `.output` in detail
 
 ```flowlog
 .decl Reach(id: int32)
 .output Reach
 ```
 
-Pass `-D <DIR>` to the compiler to write output CSVs to a directory, or `-D -` to print tuples to stderr.
+The compiler flag `-D <DIR>` controls where output CSVs land. Pass `-D -` to print tuples to stderr instead — useful for quick debugging.
 
-## `.printsize` directive
-
-The `.printsize` directive prints the cardinality (number of tuples) of a relation after execution:
+## `.printsize` in detail
 
 ```flowlog
 .decl Reach(id: int32)
 .printsize Reach
 ```
 
-A relation can have both `.output` and `.printsize`.
+Prints the number of tuples after execution. You can combine it with `.output` on the same relation — get both the count and the data.
 
-## Complete example
+## Putting it all together
 
 ```flowlog
-// EDB relations — loaded from CSV files
 .decl Source(id: int32)
 .input Source(IO="file", filename="Source.csv", delimiter=",")
 
 .decl Arc(x: int32, y: int32)
 .input Arc(IO="file", filename="Arc.csv", delimiter=",")
 
-// IDB relation — computed by rules
 .decl Reach(id: int32)
 .printsize Reach
 
@@ -88,8 +110,7 @@ Reach(y) :- Reach(x), Arc(x, y).
 
 ## Validation
 
-<StyledFlowLog /> validates declarations at parse time:
+The compiler catches common mistakes at parse time:
 
-- Duplicate `.input`, `.output`, or `.printsize` directives for the same relation are rejected.
-- A directive that references an undeclared relation causes a parse error.
-- A relation with both `.input` and `.output` (or `.printsize`) is rejected.
+- Using a directive on a relation that hasn't been declared.
+- Duplicate `.input`, `.output`, or `.printsize` on the same relation.

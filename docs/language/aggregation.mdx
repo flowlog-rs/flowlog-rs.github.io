@@ -1,5 +1,5 @@
 ---
-sidebar_position: 5
+sidebar_position: 6
 title: Aggregation
 ---
 
@@ -7,33 +7,35 @@ import StyledFlowLog from '../../src/components/StyledFlowLog';
 
 # Aggregation
 
-<StyledFlowLog /> supports aggregate functions in rule heads. Aggregations compute summary values over groups of tuples.
+Sometimes you don't want every matching row — you want a summary. <StyledFlowLog /> supports aggregate functions in rule heads for exactly this.
 
 ## Syntax
 
-An aggregate function wraps an arithmetic expression in the **head** of a rule:
+Wrap an expression in an aggregate function in the rule head:
 
 ```flowlog
 Head(group_key, agg_op(value_expr)) :- Body(...).
 ```
 
-Columns in the head that are **not** wrapped in an aggregate automatically become **group-by keys**.
+Columns **not** wrapped in an aggregate become **group-by keys** automatically. If you've used SQL's `GROUP BY`, same idea — but the grouping is implicit.
 
 ## Supported operators
 
-| Operator              | Description               |
-|-----------------------|---------------------------|
-| `min` / `MIN`         | Minimum value             |
-| `max` / `MAX`         | Maximum value             |
-| `sum` / `SUM`         | Sum of values             |
-| `count` / `COUNT`     | Count of tuples           |
-| `average` / `AVG`     | Average value             |
+| Operator          | What it computes     |
+|-------------------|----------------------|
+| `min` / `MIN`     | Minimum value        |
+| `max` / `MAX`     | Maximum value        |
+| `sum` / `SUM`     | Sum of values        |
+| `count` / `COUNT` | Number of tuples     |
+| `average` / `AVG` | Average value        |
+
+Case doesn't matter — `min` and `MIN` are the same.
 
 ## Examples
 
 ### Connected components
 
-Compute the connected component label for each node as the minimum reachable node id:
+Label each node with its component — the smallest reachable node id:
 
 ```flowlog
 .decl Arc(a: int32, b: int32)
@@ -46,11 +48,11 @@ CC(node, min(node)) :- Arc(node, _).
 CC(node, min(cc)) :- Arc(other, node), CC(other, cc).
 ```
 
-Here `node` is the group-by key and `min(...)` selects the smallest component label.
+`node` is the group-by key; `min(...)` picks the smallest label across all matches.
 
 ### Single-source shortest paths
 
-Compute shortest distances from seed nodes using `min` aggregation:
+Compute shortest distances from seed nodes:
 
 ```flowlog
 .decl arc(src: int32, dest: int32, weight: int32)
@@ -66,8 +68,8 @@ sssp(y, min(d1 + d2)) :- sssp(x, d1), arc(x, y, d2).
 .printsize sssp
 ```
 
-The aggregate argument can be an arithmetic expression (`d1 + d2`).
+The aggregate argument can be an arithmetic expression — `min(d1 + d2)` picks the shortest combined distance.
 
 ## Aggregation and stratification
 
-Aggregated relations participate in <StyledFlowLog />'s stratification analysis. The compiler schedules evaluation strata so that aggregated values are fully computed before downstream rules consume them.
+Aggregated relations participate in <StyledFlowLog />'s stratification analysis, just like negation. The compiler makes sure each aggregate is fully computed before anything downstream reads it.

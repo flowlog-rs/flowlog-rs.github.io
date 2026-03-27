@@ -1,95 +1,127 @@
 ---
 sidebar_position: 1
-title: Data Types
+title: Types
 ---
 
 import StyledFlowLog from '../../src/components/StyledFlowLog';
 
-# Data Types
+# Types
 
-<StyledFlowLog /> supports four primitive data types for relation columns.
+Every column in a `.decl` gets a type. <StyledFlowLog /> is statically typed — the compiler catches type mismatches before anything runs.
 
-## Integer
+## Numeric types
 
-| Type     | Size    | Min                       | Max                      |
-|----------|---------|---------------------------|--------------------------|
-| `int32`  | 32-bit  | -2.1 × 10<sup>9</sup>    | 2.1 × 10<sup>9</sup>    |
-| `int64`  | 64-bit  | -9.2 × 10<sup>18</sup>   | 9.2 × 10<sup>18</sup>   |
+### Signed integers
 
-Integer types map directly to the corresponding Rust signed integer types (`i32`, `i64`) in the generated code.
+Your everyday integers. Pick the smallest size that fits your data:
+
+| Type     | Rust equivalent | Range |
+|----------|-----------------|-------|
+| `int8`   | `i8`   | -128 to 127                       |
+| `int16`  | `i16`  | -32 768 to 32 767                 |
+| `int32`  | `i32`  | -2.1 × 10<sup>9</sup> to 2.1 × 10<sup>9</sup>   |
+| `int64`  | `i64`  | -9.2 × 10<sup>18</sup> to 9.2 × 10<sup>18</sup> |
 
 ```flowlog
 .decl Score(student_id: int32, grade: int32)
-// Score(1001, 95).
+```
+
+### Unsigned integers
+
+When you know values are never negative:
+
+| Type      | Rust equivalent | Range |
+|-----------|-----------------|-------|
+| `uint8`   | `u8`   | 0 to 255                      |
+| `uint16`  | `u16`  | 0 to 65 535                   |
+| `uint32`  | `u32`  | 0 to 4.3 × 10<sup>9</sup>    |
+| `uint64`  | `u64`  | 0 to 1.8 × 10<sup>19</sup>   |
+
+```flowlog
+.decl Pixel(x: uint16, y: uint16, color: uint32)
+```
+
+### Floats
+
+Floating-point numbers, wrapped in `OrderedFloat` under the hood so they can be hashed and compared correctly (no NaN surprises):
+
+| Type  | Rust equivalent | Precision          |
+|-------|-----------------|---------------------|
+| `f32` | `f32`           | ~7 decimal digits   |
+| `f64` | `f64`           | ~15 decimal digits  |
+
+```flowlog
+.decl Measurement(sensor: int32, value: f64)
 ```
 
 ## String
 
-The `string` type represents a UTF-8 string value. String constants are written in double quotes:
+The `string` type holds UTF-8 text. String constants use double quotes:
 
 ```flowlog
 .decl Name(id: int32, label: string)
-// Name(1, "alice").
+Name(1, "alice").
 ```
 
 ## Boolean
 
-The `bool` type represents a true/false value. Boolean literals are written as `True` or `False` (capitalized):
+The `bool` type is `True` or `False` — capitalized. Lowercase `true` won't work:
 
 ```flowlog
 .decl Flag(id: int32, active: bool)
-// Flag(1, True).
+Flag(1, True).
 ```
 
-## Declaring types in relations
+## Using types in declarations
 
-Types are specified in `.decl` directives:
+Every column needs an explicit type — no inference, no defaults:
 
 ```flowlog
 .decl Edge(src: int32, dst: int32)
 .decl Person(id: int64, name: string, active: bool)
+.decl Sensor(id: uint32, reading: f64, label: string)
 ```
-
-Every column in a relation must have an explicit type annotation.
 
 ## Type checking
 
-<p><StyledFlowLog /> enforces type safety at relation boundaries — <b>Joins</b>, <b>Rule heads</b>, and <b>String/Boolean constants</b>. Integer constant overflow and comparison operand types are not checked by <StyledFlowLog /> and will be caught by the downstream Rust compiler.</p>
+<StyledFlowLog /> catches type errors at compile time in these cases:
 
 ### Joins
 
-Variables used as join keys across relations must have matching types. For example, joining `Edge(x, y)` with `Node(y, label)` requires `y` to have the same type in both `Edge` and `Node`.
+When a variable appears in multiple atoms, its type must agree everywhere. If `Edge.dst` is `int32` and `Node.id` is `int64`, joining on the same variable is a type error:
 
 ```flowlog
 .decl Edge(src: int32, dst: int32)
 .decl Node(id: int32, label: string)
 
-// Valid: y is int32 in both Edge and Node
+// Works: y is int32 in both Edge and Node
 Match(x, label) :- Edge(x, y), Node(y, label).
 ```
 
-<p>If <code>Node</code> were instead declared as <code>Node(id: int64, label: string)</code>, <StyledFlowLog /> would report a type error because <code>y</code> cannot be both <code>int32</code> and <code>int64</code>.</p>
+Change `Node.id` to `int64` and the compiler will complain — `y` can't be two types at once.
+
+Floats work as join keys too, thanks to `OrderedFloat`:
+
+```flowlog
+.decl A(x: f32, y: f32)
+.decl B(x: f32, z: f64)
+
+// x is f32 in both — valid join
+AB(x, y, z) :- A(x, y), B(x, z).
+```
 
 ### Rule heads
 
-When multiple rules write to the same IDB relation, all rules must produce the same column types as the IDB declaration. For example, if `Route(src, dst, cost)` is declared with `(int32, int32, int32)`, every rule deriving `Route` must produce `(int32, int32, int32)`.
+All rules deriving the same relation must produce matching types:
 
 ```flowlog
-.decl Edge(src: int32, dst: int32)
-.decl Weight(src: int32, dst: int32, cost: int32)
 .decl Route(src: int32, dst: int32, cost: int32)
 
-// Both rules produce (int32, int32, int32) — matches the declaration
+// Both rules produce (int32, int32, int32) — good
 Route(x, y, c) :- Edge(x, y), Weight(x, y, c).
 Route(x, z, c) :- Route(x, y, _), Edge(y, z), Weight(y, z, c).
 ```
 
-Since `x`, `y`, and `z` come from `Edge` (declared as `(int32, int32)`) and `c` comes from `Weight` (declared with `cost: int32`), the types match the `Route` declaration.
+### What FlowLog does *not* check
 
-### Constants
-
-<p><code>String</code> and <code>Bool</code> constants are type-checked by <StyledFlowLog />. Integer constants (e.g., <code>42</code>) are <b>NOT</b> explicitly checked — if a constant doesn't fit the column type, the value will be silently truncated.</p>
-
-### Comparisons
-
-<p>Type compatibility of comparison operands (e.g., <code>x &gt; y</code>, <code>x != 3</code>) is not checked by <StyledFlowLog /> directly. Mismatched types will produce a compilation error in the generated code.</p>
+Integer and float constant overflow (e.g., stuffing `999` into a `uint8`) and comparison type mismatches (e.g., `int32 > int64`) are **not** caught by FlowLog. The downstream Rust compiler will catch these for you — so you'll still get an error, just a less friendly one.

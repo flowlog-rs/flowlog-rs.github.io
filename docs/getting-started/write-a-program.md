@@ -14,7 +14,7 @@ import StyledFlowLog from '../../src/components/StyledFlowLog';
 - Outputs (IDB): export results with `.output` or `.printsize`
 - Logic: rules derive new facts
 
-> Execution mode (batch, incremental) is chosen later at runtime via parameter `--mode`. In this step, we focus only on writing the program.
+> Execution mode is chosen at compile time via `--mode`. Options are `datalog-batch` (default), `datalog-inc`, `extend-batch`, and `extend-inc`. In this step, we focus only on writing the program.
 
 ## Example: reachability
 

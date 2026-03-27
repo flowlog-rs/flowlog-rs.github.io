@@ -1,71 +1,87 @@
 ---
-sidebar_position: 1
-title: Basics
+sidebar_position: 0
+title: Syntax
 ---
 
 import StyledFlowLog from '@site/src/components/StyledFlowLog';
 
-# Basics
+# Syntax
 
-This page covers the fundamental building blocks of a <StyledFlowLog /> program.
+A <StyledFlowLog /> program is a plain-text `.dl` file containing declarations and rules. This page covers the building blocks you'll use everywhere.
 
 ## Variables
 
-Variables are identifiers that start with a **lowercase letter** and may contain letters, digits, and underscores. Variables are local to the rule they appear in:
+Variables start with a **lowercase letter** and can contain letters, digits, and underscores. Each variable is local to the rule it appears in — the same name in two different rules is two independent bindings:
 
 ```flowlog
 Path(x, y) :- Edge(x, y).
 Path(x, z) :- Path(x, y), Edge(y, z).
 ```
 
-Here `x`, `y`, and `z` are variables. The same variable name in different rules refers to independent bindings.
+When a variable shows up in multiple atoms of the same rule, it acts as a **join key** — FlowLog only keeps combinations where that variable has the same value everywhere. In the second rule above, `y` must match across `Path` and `Edge`.
 
 ## Constants
 
-<StyledFlowLog /> supports four kinds of constants:
+You can use literal values directly in rules and facts:
 
-| Kind    | Example          | Description                  |
-|---------|------------------|------------------------------|
-| Integer | `42`, `-1`, `0`  | Decimal integer literal      |
-| String  | `"hello"`        | Double-quoted UTF-8 string   |
-| Boolean | `True`, `False`  | Capitalized boolean literal  |
+| Kind    | Example          | Notes                                   |
+|---------|------------------|-----------------------------------------|
+| Integer | `42`, `-1`, `0`  | Decimal literals; see [Types](datatype) for the full set of numeric types |
+| Float   | `1.25`, `0.0`    | Decimal with a dot                      |
+| String  | `"hello"`        | Double-quoted, UTF-8                    |
+| Boolean | `True`, `False`  | Capitalized — `true` won't work!        |
 
-Constants can appear in rule heads and bodies:
+Constants work in both rule heads and bodies:
 
 ```flowlog
+// Inline facts
 Source(1).
 Name(1, "alice").
 Flag(1, True).
 
+// Filtering in a rule body
 BigNode(x) :- Node(x, size), size > 100.
 ```
 
 ## Placeholders
 
-The underscore `_` is a **wildcard** that matches any value without binding it to a variable. Use it when you don't need a column's value:
+Don't care about a column? Use the underscore `_` wildcard — it matches anything without binding a name:
 
 ```flowlog
 HasOutEdge(x) :- Edge(x, _).
 ```
 
-Multiple underscores in the same rule are independent — each matches any value.
+Multiple underscores in the same rule are independent. Each `_` is its own "I don't care."
 
 ## Comments
 
-Comments start with `//` or `#` and extend to the end of the line:
+Line comments start with `//` or `#`:
 
 ```flowlog
 // This is a comment
-# This is also a comment
+# So is this
 Reach(y) :- Source(y).  // inline comment
 ```
 
+There are no block comments — just keep commenting lines. It builds character.
+
 ## Whitespace
 
-Whitespace (spaces, tabs, newlines) is not significant except to separate tokens. Rules can span multiple lines:
+Spaces, tabs, and newlines are only there to separate tokens. Feel free to break long rules across multiple lines:
 
 ```flowlog
 Path(x, y) :-
     Edge(x, z),
     Path(z, y).
 ```
+
+## `.include`
+
+Split your program across files with `.include`:
+
+```flowlog
+.include "lib/graph_utils.dl"
+.include "lib/string_helpers.dl"
+```
+
+All declarations and rules from included files get merged into the main program. Includes can nest — an included file can `.include` other files too.

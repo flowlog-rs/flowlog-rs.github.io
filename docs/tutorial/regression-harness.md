@@ -3,13 +3,20 @@ sidebar_position: 2
 title: Testing
 ---
 
-`tools/check/check.sh` automates dataset downloads, code generation, execution, and verification.
+End-to-end tests live in `tests/e2e/`. Run the full suite with:
 
 ```bash
-bash tools/check/check.sh
+bash tests/e2e/run.sh
 ```
 
-- Programs and datasets are listed in `tools/check/config.txt`.
-- Datasets are cached under `facts/` and cleaned between runs.
-- Logs and parsed relation sizes are written to `result/logs/` and `result/parsed/`.
-- Temporary Cargo projects live one directory above the workspace (e.g., `../flowlog_reach_livejournal`).
+Or run specific tests by name:
+
+```bash
+bash tests/e2e/run.sh loop_fixpoint negation
+```
+
+Each test is a directory under `tests/e2e/<test_name>/` containing:
+- `program.dl` — Datalog source (must use `.output` directives).
+- `data/` — Optional CSV input facts copied into the test working directory.
+- `expected/` — Expected output files (one per output relation).
+- `commands.txt` — Optional incremental transcript (enables incremental mode).

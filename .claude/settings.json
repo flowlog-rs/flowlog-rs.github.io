@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s https://raw.githubusercontent.com/flowlog-rs/flowlog/main/README.md)",
+      "Bash(gh api:*)",
+      "Bash(curl -s \"https://api.github.com/repos/flowlog-rs/flowlog/commits?per_page=30\")",
+      "Bash(python3 -c \":*)",
+      "Bash(curl -s https://raw.githubusercontent.com/flowlog-rs/flowlog/main/Cargo.toml)",
+      "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\" https://raw.githubusercontent.com/flowlog-rs/flowlog/main/CHANGELOG.md)",
+      "Bash(curl -s \"https://api.github.com/repos/flowlog-rs/flowlog/releases?per_page=5\")",
+      "Bash(curl -s \"https://api.github.com/repos/flowlog-rs/flowlog/contents/src\")",
+      "Bash(curl -s \"https://api.github.com/repos/flowlog-rs/flowlog/contents/crates\")",
+      "Bash(curl -s \"https://api.github.com/repos/flowlog-rs/flowlog/contents/\")",
+      "Bash(curl -s \"https://api.github.com/repos/flowlog-rs/flowlog/contents/crates/compiler/src\")",
+      "Bash(curl -s \"https://api.github.com/repos/flowlog-rs/flowlog/contents/crates/common/src\")",
+      "Bash(curl -s \"https://api.github.com/repos/flowlog-rs/flowlog/contents/crates/parser/src\")",
+      "Bash(curl -s \"https://api.github.com/repos/flowlog-rs/flowlog/contents/crates/planner/src\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm run:*)",
+      "Bash(source ~/.nvm/nvm.sh)",
+      "Bash(nvm use:*)",
+      "Bash(npx docusaurus:*)"
+    ]
+  }
+}

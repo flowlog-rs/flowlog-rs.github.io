@@ -5,7 +5,7 @@ title: "Step 2: Run it"
 
 import StyledFlowLog from '../../src/components/StyledFlowLog';
 
-## Batch Mode 
+## Batch Mode
 
 In batch mode, the runtime loads all input facts from CSV files on disk, evaluates the program once, and then exits.
 
@@ -26,11 +26,11 @@ Reach(y) :- Reach(x), Arc(x, y).
 ```
 
 >- `Source` and `Arc` are input relations, so their facts are read from CSV files.
->- `Reach` is the result relation. With `.printsize`, FlowLog prints only the number of tuples in `Reach`.
+>- `Reach` is the result relation. With `.output`, FlowLog writes tuples to a file (or stderr with `-D -`).
 
 ### Prepare input files
 Create the input CSV files (one tuple per line, comma-separated for `Arc`).
- 
+
 ```csv
 # Source.csv
 1
@@ -49,9 +49,9 @@ We can compile this program by running
 ```bash
 $ flowlog reachability.dl -o reachability -F . -D .
 ```
-This generates a Rust crate at `reachability/`, note that no `reach.csv` has been produced, as the program has not yet been evaluated.
+This generates a standalone executable `reachability`. Note that no `Reach.csv` has been produced yet, as the program has not been evaluated.
 
-The `-F` and `-D` options specify the directories for input and output files respectively. So in this case, `Source.csv` and `Arc.csv` is in the generated rust crate working directory `.`, and `Reach.csv` will be produced here also.
+The `-F` and `-D` options specify the directories for input and output files respectively. So in this case, `Source.csv` and `Arc.csv` will be read from the current directory `.`, and `Reach.csv` will be produced here also.
 
 If instead `Source.csv` and `Arc.csv` were in a subdirectory called `input`, and we wanted to have `Reach.csv` in a subdirectory called `output`, we could do
 
@@ -59,17 +59,15 @@ If instead `Source.csv` and `Arc.csv` were in a subdirectory called `input`, and
 $ flowlog reachability.dl -o reachability -F ./input -D ./output
 ```
 
-### Run the generated crate
+### Run the executable
 
-To evaluate our program, we have to run the compiled rust crate
+To evaluate our program, run the compiled executable directly:
 
 ```bash
-# Enter generated rust crate 
-$ cd reachability
-$ cargo run --release -- -w 4
+$ ./reachability -w 4
 ```
 
-This compiles the generated <StyledFlowLog /> workspace in release mode and executes it with four worker threads. Use fewer workers on laptops with limited cores or drop `--release` for faster rebuilds while editing.
+This runs the program with four worker threads. Use fewer workers on laptops with limited cores.
 
 ## Incremental Mode
 
@@ -94,22 +92,20 @@ Reach(y) :- Reach(x), Arc(x, y).
 
 ### Compile the program
 
-We generate a Rust crate:
+Compile with `--mode datalog-inc`:
 
 ```bash
-$ flowlog reachability.dl -o reachability -D - --mode incremental
+$ flowlog reachability.dl -o reachability -D - --mode datalog-inc
 ```
 
 In incremental mode, inputs come from the interactive shell, so `-F` is not used. As in batch mode, the `-D` option specifies the directory for output files. In this example, we set `-` as its value to print the output to the interactive shell.
 
-### Run the generated crate
+### Run the executable
 
-Start the interactive shell by running the generated crate:
+Start the interactive shell by running the generated executable:
 
 ```bash
-# Enter generated rust crate
-$ cd reachability
-$ cargo run --release -- -w 4
+$ ./reachability -w 4
 ```
 
 You should see a prompt like:
@@ -147,7 +143,7 @@ Insert `Arc` edges (note the comma-separated tuple, matching `delimiter=","`):
 You can also insert tuples using file interface if they are large,
 
 ```txt
->> file Arc Arc.csv 
+>> file Arc Arc.csv
 ```
 
 We finally commit the transaction:
@@ -177,4 +173,4 @@ For example, remove the edge `2 -> 3`:
 
 After this commit, `3` is no longer reachable from `1` (for this example graph), so `Reach` is updated accordingly in the next output snapshot / size print.
 
-The interactive shell offers additional commands (e.g., `help`, `abort`). We’ll cover the full command reference in the following section. There also have many other useful options available to <StyledFlowLog />, so be sure to explore them too!
+The interactive shell offers additional commands (e.g., `help`, `abort`). We'll cover the full command reference in the following section. There also have many other useful options available to <StyledFlowLog />, so be sure to explore them too!

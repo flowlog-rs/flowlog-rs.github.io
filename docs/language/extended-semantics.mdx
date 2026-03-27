@@ -1,0 +1,115 @@
+---
+sidebar_position: 8
+title: Extended Semantics
+---
+
+import StyledFlowLog from '../../src/components/StyledFlowLog';
+
+# Extended Semantics
+
+Standard Datalog runs everything to a fixpoint and calls it a day. Sometimes you want more control — bounded iteration, early stopping, or explicit loops. That's what extended semantics are for.
+
+To use them, compile with `--mode extend-batch` or `--mode extend-inc`.
+
+## Loop blocks
+
+A `loop` block wraps rules that should iterate. Three flavors:
+
+### `fixpoint` — run until nothing changes
+
+```flowlog
+fixpoint {
+    Reach(x, z) :- Reach(x, y), Edge(y, z).
+}
+```
+
+This is the same as standard Datalog recursion, but spelled out explicitly. The block keeps re-evaluating until no new tuples appear.
+
+### `loop while` — run while a condition holds
+
+```flowlog
+loop while { @it <= 1 } {
+    Reach(x, z) :- Reach(x, y), Edge(y, z).
+}
+```
+
+`@it` is a built-in counter that tracks the current iteration (starting from 0). Here the loop runs for iterations 0 and 1 — two rounds — then stops. Useful for bounding how far you explore.
+
+### `loop until` — run until a relation becomes non-empty
+
+```flowlog
+.decl Done()
+
+loop until { Done } {
+    Reach(x, z) :- Reach(x, y), Edge(y, z).
+    Done()      :- Reach(1, y), Target(y).
+}
+```
+
+The loop keeps going until `Done` has at least one fact. This gives you data-dependent stopping — "keep going until we find what we're looking for."
+
+## Execution modes
+
+<StyledFlowLog /> has four execution modes. The `extend-*` modes unlock loop blocks:
+
+| Mode            | Description                                        |
+|-----------------|----------------------------------------------------|
+| `datalog-batch` | Standard Datalog, batch evaluation (the default)   |
+| `datalog-inc`   | Standard Datalog, incremental evaluation           |
+| `extend-batch`  | Extended semantics with loop blocks, batch         |
+| `extend-inc`    | Extended semantics with loop blocks, incremental   |
+
+```bash
+# Extended batch
+$ flowlog program.dl --mode extend-batch -o program -F data -D -
+
+# Extended incremental
+$ flowlog program.dl --mode extend-inc -o program -D -
+```
+
+## Example: bounded transitive closure
+
+Compute reachability but cap the number of hops:
+
+```flowlog
+.decl Edge(src: int32, dst: int32)
+.input Edge(IO="file", filename="Edge.csv", delimiter=",")
+
+.decl Reach(src: int32, dst: int32)
+.output Reach
+
+// Base case
+Reach(x, y) :- Edge(x, y).
+
+// Extend for at most 2 more rounds
+loop while { @it <= 1 } {
+    Reach(x, z) :- Reach(x, y), Edge(y, z).
+}
+```
+
+Without the bound, this would be a full transitive closure. With `@it <= 1`, you get paths of length up to 3.
+
+## Example: early termination
+
+Stop as soon as a target node becomes reachable:
+
+```flowlog
+.decl Edge(src: int32, dst: int32)
+.input Edge(IO="file", filename="Edge.csv", delimiter=",")
+
+.decl Target(node: int32)
+.input Target(IO="file", filename="Target.csv", delimiter=",")
+
+.decl Reach(src: int32, dst: int32)
+.decl Done()
+.output Reach
+
+Reach(x, y) :- Edge(x, y).
+
+loop until { Done } {
+    Reach(x, z) :- Reach(x, y), Edge(y, z).
+    Done()      :- Reach(1, y), Target(y).
+}
+```
+
+Once node `1` can reach any target, the loop exits. No wasted computation exploring the rest of the graph.

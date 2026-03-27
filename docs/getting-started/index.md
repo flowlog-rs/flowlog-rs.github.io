@@ -10,6 +10,6 @@ import StyledFlowLog from '../../src/components/StyledFlowLog';
 </div>
 
 1. Write a Datalog program.
-2. Run it by providing inputs.
+2. Compile and run it.
 
-In this section, we’ll set up everything you need on your platform to run <StyledFlowLog />, then work through a small example program end to end. We’ll run the program in batch mode first, and then switch to incremental mode to show the interactive workflow for updating inputs. Our goal is to show you what a FlowLog program looks like and how it feels to use in practice.
+In this section, we’ll set up everything you need on your platform to run <StyledFlowLog />, then work through a small example program end to end. We’ll compile the program into an executable, run it in batch mode first, and then switch to incremental mode to show the interactive workflow for updating inputs. Our goal is to show you what a FlowLog program looks like and how it feels to use in practice.

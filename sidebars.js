@@ -44,6 +44,7 @@ const sidebars = {
         'language/expressions',
         'language/aggregation',
         'language/extern-functions',
+        'language/extended-semantics',
       ],
     },
     // {
