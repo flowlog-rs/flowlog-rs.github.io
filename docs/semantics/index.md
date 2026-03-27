@@ -7,9 +7,9 @@ import StyledFlowLog from '../../src/components/StyledFlowLog';
 
 # Stratification
 
-<StyledFlowLog /> evaluates your rules by repeatedly applying them until no new facts can be derived — a stable state called a <b>fixpoint</b>. The engine is powered by [Differential Dataflow](https://github.com/TimelyDataflow/differential-dataflow), which efficiently tracks only what changes each round.
+<StyledFlowLog /> evaluates your rules by repeatedly applying them until no new facts can be derived — a stable state called a <b>fixpoint</b>. The engine is powered by <a href="https://github.com/TimelyDataflow/differential-dataflow">Differential Dataflow</a>, which efficiently tracks only what changes each round.
 
-Most of the time, you don't need to think about this. But there are two situations where the evaluation order matters and the compiler will warn you: **negation** and **aggregation**.
+Most of the time, you don't need to think about this. But there are two situations where the evaluation order matters and the compiler will warn you: <b>negation</b> and <b>aggregation</b>.
 
 ## Stratification
 
