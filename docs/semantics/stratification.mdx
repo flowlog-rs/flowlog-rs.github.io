@@ -97,7 +97,7 @@ SSSP(y, min(d + w)) :- SSSP(x, d), Edge(x, y, w).
 
 Here `SSSP` aggregates over itself — `min` appears in the head of a recursive rule. Strictly speaking, this breaks stratification (the aggregate reads a relation that's still being computed).
 
-<StyledFlowLog /> allows this with a <b>warning</b>. In practice, monotone aggregates like `min` and `max` converge to the correct fixpoint because the aggregate value can only move in one direction. But the compiler doesn't verify monotonicity — it trusts you. If you use a non-monotone aggregate (like `count` or `average`) recursively, the result may not be meaningful.
+<StyledFlowLog /> allows this with a <b>warning</b>. In practice, monotone aggregates like <code>min</code> and <code>max</code> converge to the correct fixpoint because the aggregate value can only move in one direction. But the compiler doesn't verify monotonicity — it trusts you. If you use a non-monotone aggregate (like <code>count</code> or <code>average</code>) recursively, the result may not be meaningful.
 
 ## When it's safe vs when to be careful
 

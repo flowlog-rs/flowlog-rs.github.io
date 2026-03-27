@@ -7,7 +7,7 @@ import StyledFlowLog from '@site/src/components/StyledFlowLog';
 
 # Syntax
 
-A <StyledFlowLog /> program is a plain-text `.dl` file containing declarations and rules. This page covers the building blocks you'll use everywhere.
+A <StyledFlowLog /> program is a plain-text <code>.dl</code> file containing declarations and rules. This page covers the building blocks you'll use everywhere.
 
 ## Variables
 
@@ -18,7 +18,7 @@ Path(x, y) :- Edge(x, y).
 Path(x, z) :- Path(x, y), Edge(y, z).
 ```
 
-When a variable shows up in multiple atoms of the same rule, it acts as a **join key** — <StyledFlowLog /> only keeps combinations where that variable has the same value everywhere. In the second rule above, `y` must match across `Path` and `Edge`.
+When a variable shows up in multiple atoms of the same rule, it acts as a <b>join key</b> — <StyledFlowLog /> only keeps combinations where that variable has the same value everywhere. In the second rule above, <code>y</code> must match across <code>Path</code> and <code>Edge</code>.
 
 ## Constants
 
