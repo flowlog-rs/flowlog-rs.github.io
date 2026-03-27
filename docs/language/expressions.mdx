@@ -7,9 +7,11 @@ import StyledFlowLog from '../../src/components/StyledFlowLog';
 
 # Expressions
 
-Rules aren't limited to just pattern matching — you can do arithmetic, concatenate strings, and compare values.
+Rules aren't limited to just pattern matching — you can compute values in the head and filter with comparisons in the body.
 
-## Arithmetic
+## Arithmetic (rule heads)
+
+Arithmetic expressions appear in rule **heads** to compute derived values.
 
 ### Integer operators
 
@@ -33,28 +35,24 @@ The `cat` operator glues two strings together:
 |----------|----------------------|-------------|
 | `cat`    | String concatenation | `x cat y`   |
 
-### In rule heads
-
-Compute derived values directly in the head:
+### Examples
 
 ```flowlog
 .decl Arc(src: int32, dst: int32, weight: int32)
 .decl DoubleWeight(src: int32, dst: int32, w: int32)
+.decl FullName(id: int32, full: string)
+.decl Person(id: int32, first: string, last: string)
 
+// Arithmetic in the head
 DoubleWeight(x, y, w * 2) :- Arc(x, y, w).
+
+// String concatenation in the head
+FullName(id, first cat " " cat last) :- Person(id, first, last).
 ```
 
-### In rule bodies
+## Comparisons (rule bodies)
 
-Use expressions inside comparisons to filter:
-
-```flowlog
-Heavy(x, y) :- Arc(x, y, w), w * 2 > 100.
-```
-
-## Comparisons
-
-Comparisons test a condition between two expressions. They appear as predicates in rule bodies:
+Comparisons appear in rule **bodies** to filter tuples. They test a condition between two values:
 
 | Operator | Description      | Example     |
 |----------|------------------|-------------|
@@ -65,14 +63,13 @@ Comparisons test a condition between two expressions. They appear as predicates 
 | `>=`     | Greater or equal | `x >= y`    |
 | `<=`     | Less or equal    | `x <= y`    |
 
-### Example: same-generation query
-
-Find pairs of nodes that share a common ancestor but aren't the same node:
+### Examples
 
 ```flowlog
-.decl Arc(src: int32, dest: int32)
-.decl Sg(src: int32, dest: int32)
+// Filter: only keep arcs where weight exceeds 100
+Heavy(x, y) :- Arc(x, y, w), w > 100.
 
+// Same-generation query: pairs sharing a common ancestor, but not the same node
 Sg(x, y) :- Arc(a, x), Arc(a, y), x != y.
 Sg(x, y) :- Arc(a, x), Sg(a, b), Arc(b, y).
 ```

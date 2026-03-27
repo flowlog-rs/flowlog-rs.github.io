@@ -93,7 +93,7 @@ or print only the relation size with `.printsize`
 .printsize Reach
 ```
 
-In **incremental** mode, outputs are emitted as the computation advances, so <StyledFlowLog /> appends a timestamp suffix to the output filename to avoid overwriting previous snapshots (for example, `Reach_<timestamp>.csv`).
+In <b>incremental</b> mode, outputs are emitted as the computation advances, so <StyledFlowLog /> appends a timestamp suffix to the output filename to avoid overwriting previous snapshots (for example, <code>Reach_&lt;timestamp&gt;.csv</code>).
 
 ### Rules
 Rules derive new facts. They have the form:

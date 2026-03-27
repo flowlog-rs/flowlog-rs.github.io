@@ -59,7 +59,7 @@ Prefix with `!` to negate — "this tuple must **not** exist":
 Isolated(x) :- Node(x), !Edge(x, _).
 ```
 
-<StyledFlowLog /> uses **stratified negation**: the negated relation must be fully computed before the rule that negates it runs. The compiler figures out the right evaluation order automatically. If there's a circular dependency through negation, it'll tell you.
+<StyledFlowLog /> uses <b>stratified negation</b>: the negated relation must be fully computed before the rule that negates it runs. The compiler figures out the right evaluation order automatically. If there's a circular dependency through negation, it'll tell you.
 
 ## Joins
 
