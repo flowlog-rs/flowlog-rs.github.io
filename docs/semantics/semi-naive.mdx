@@ -127,7 +127,7 @@ Differential Dataflow tracks **changes** — every tuple carries a diff (`+1` fo
 
 For recursion, DD provides `Variable` — a special collection that can feed its output back into its own input within an `iterate` scope:
 
-```
+```rust
 iterate(|inner| {
     // 1. Create a Variable — starts empty
     let reach = Variable::new(inner);
