@@ -8,7 +8,7 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-font-family-base: 'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ifm-font-family-base: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
   --ifm-heading-font-family: 'Cambay', 'DejaVu Serif', Georgia, serif;
   --ifm-h1-font-size: 1.5rem;
   --ifm-h2-font-size: 1.2rem;
