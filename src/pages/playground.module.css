@@ -1,0 +1,826 @@
+@import url('https://fonts.googleapis.com/css2?family=Cambay:ital,wght@0,400;0,700;1,400;1,700&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap');
+
+:global(:root) {
+  --pg-bg: #fff;
+  --pg-text: #333;
+  --pg-muted: #555;
+  --pg-accent-blue: #0087B9;
+  --pg-accent-brown: #5F2D12;
+  --pg-card-bg: #fafafa;
+  --pg-card-border: #e6e6e6;
+  --pg-editor-bg: #1e1e2e;
+  --pg-editor-text: #cdd6f4;
+  --pg-editor-line: #313244;
+  --pg-editor-cursor: #f5e0dc;
+  --pg-terminal-bg: #0d1117;
+  --pg-terminal-text: #c9d1d9;
+  --pg-terminal-prompt: #7ee787;
+  --pg-terminal-border: #30363d;
+  --pg-success: #2ea043;
+  --pg-error: #da3633;
+  --pg-warning: #d29922;
+  --pg-tab-active: #1e6ba3;
+  --pg-tab-inactive: transparent;
+  --pg-toolbar-bg: #f0f4f7;
+  --pg-toolbar-border: #dce3ea;
+  --pg-result-header: #f0f4f7;
+  --pg-button-primary-bg: #37bffe;
+  --pg-button-primary-text: #000;
+  --pg-button-primary-shadow: rgba(14, 165, 233, 0.3);
+  --pg-button-secondary-border: rgba(30, 107, 163, 0.4);
+  --pg-button-secondary-text: #1e6ba3;
+  --pg-select-bg: #fff;
+  --pg-select-border: #dce3ea;
+  --pg-badge-bg: #e8f4f8;
+  --pg-badge-text: #1e6ba3;
+  --pg-scrollbar-track: #f0f0f0;
+  --pg-scrollbar-thumb: #c0c0c0;
+}
+
+:global([data-theme='dark']) {
+  --pg-bg: #0d1117;
+  --pg-text: #e6edf3;
+  --pg-muted: #a0b3c2;
+  --pg-accent-blue: #46BEE6;
+  --pg-accent-brown: #D2824B;
+  --pg-card-bg: #1b222d;
+  --pg-card-border: #2a3240;
+  --pg-editor-bg: #0d1117;
+  --pg-editor-text: #e6edf3;
+  --pg-editor-line: #1c222c;
+  --pg-editor-cursor: #f0c7a1;
+  --pg-terminal-bg: #010409;
+  --pg-terminal-text: #c9d1d9;
+  --pg-terminal-prompt: #7ee787;
+  --pg-terminal-border: #21262d;
+  --pg-success: #3fb950;
+  --pg-error: #f85149;
+  --pg-warning: #d29922;
+  --pg-tab-active: #8dcfff;
+  --pg-tab-inactive: transparent;
+  --pg-toolbar-bg: #161b22;
+  --pg-toolbar-border: #21262d;
+  --pg-result-header: #161b22;
+  --pg-button-primary-bg: #0891b2;
+  --pg-button-primary-text: #000;
+  --pg-button-primary-shadow: rgba(8, 145, 178, 0.35);
+  --pg-button-secondary-border: rgba(141, 207, 255, 0.4);
+  --pg-button-secondary-text: #b6e3ff;
+  --pg-select-bg: #1b222d;
+  --pg-select-border: #2a3240;
+  --pg-badge-bg: #1c2a3a;
+  --pg-badge-text: #8dcfff;
+  --pg-scrollbar-track: #161b22;
+  --pg-scrollbar-thumb: #30363d;
+}
+
+/* ─── Page layout ─── */
+
+.playgroundPage {
+  font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--pg-text);
+  background-color: var(--pg-bg);
+  min-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--pg-card-border);
+  background: var(--pg-toolbar-bg);
+  flex-shrink: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.title {
+  font-family: 'Cambay', 'DejaVu Serif', Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.titleBlue {
+  color: var(--pg-accent-blue);
+}
+
+.titleBrown {
+  color: var(--pg-accent-brown);
+}
+
+.modeBadge {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--pg-badge-bg);
+  color: var(--pg-badge-text);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ─── Controls ─── */
+
+.select {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 28px 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--pg-select-border);
+  background-color: var(--pg-select-bg);
+  color: var(--pg-text);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.select:focus {
+  outline: 2px solid var(--pg-accent-blue);
+  outline-offset: -1px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.controlGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.numberInput {
+  font-family: inherit;
+  font-size: 13px;
+  width: 56px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--pg-select-border);
+  background-color: var(--pg-select-bg);
+  color: var(--pg-text);
+  text-align: center;
+}
+
+.numberInput:focus {
+  outline: 2px solid var(--pg-accent-blue);
+  outline-offset: -1px;
+}
+
+/* ─── Server URL ─── */
+
+.serverGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.serverInput {
+  font-family: 'Ubuntu Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  width: 200px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--pg-select-border);
+  background-color: var(--pg-select-bg);
+  color: var(--pg-text);
+}
+
+.serverInput:focus {
+  outline: 2px solid var(--pg-accent-blue);
+  outline-offset: -1px;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusConnected {
+  background-color: var(--pg-success);
+  box-shadow: 0 0 6px var(--pg-success);
+}
+
+.statusDisconnected {
+  background-color: var(--pg-error);
+}
+
+.statusConnecting {
+  background-color: var(--pg-warning);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ─── Main workspace ─── */
+
+.workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── Left panel (editor + facts) ─── */
+
+.leftPanel {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  min-width: 0;
+  border-right: 1px solid var(--pg-card-border);
+}
+
+/* ─── Tab bar ─── */
+
+.tabBar {
+  display: flex;
+  background: var(--pg-toolbar-bg);
+  border-bottom: 1px solid var(--pg-toolbar-border);
+  flex-shrink: 0;
+}
+
+.tab {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--pg-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+  color: var(--pg-text);
+}
+
+.tabActive {
+  color: var(--pg-accent-blue);
+  border-bottom-color: var(--pg-tab-active);
+}
+
+/* ─── Code editor ─── */
+
+.editorPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editorToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--pg-toolbar-bg);
+  border-bottom: 1px solid var(--pg-toolbar-border);
+  flex-shrink: 0;
+}
+
+.exampleSelect {
+  composes: select;
+  font-size: 12px;
+}
+
+.editorWrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.editor {
+  position: absolute;
+  inset: 0;
+  font-family: 'Ubuntu Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 16px;
+  margin: 0;
+  border: none;
+  resize: none;
+  background: var(--pg-editor-bg);
+  color: var(--pg-editor-text);
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+}
+
+.editor:focus {
+  outline: none;
+}
+
+.editor::placeholder {
+  color: rgba(205, 214, 244, 0.3);
+}
+
+/* ─── Facts panel ─── */
+
+.factsPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.factsToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--pg-toolbar-bg);
+  border-bottom: 1px solid var(--pg-toolbar-border);
+  flex-shrink: 0;
+}
+
+.addFactBtn {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--pg-button-secondary-border);
+  background: none;
+  color: var(--pg-button-secondary-text);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.addFactBtn:hover {
+  background-color: var(--pg-badge-bg);
+}
+
+.factsList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.factEntry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--pg-card-bg);
+  border: 1px solid var(--pg-card-border);
+  border-radius: 8px;
+}
+
+.factHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.factNameInput {
+  font-family: 'Ubuntu Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--pg-select-border);
+  background: var(--pg-select-bg);
+  color: var(--pg-accent-blue);
+  font-weight: 600;
+  flex: 1;
+}
+
+.factNameInput:focus {
+  outline: 2px solid var(--pg-accent-blue);
+  outline-offset: -1px;
+}
+
+.removeFactBtn {
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  border: none;
+  background: none;
+  color: var(--pg-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.removeFactBtn:hover {
+  color: var(--pg-error);
+  background: rgba(218, 54, 51, 0.1);
+}
+
+.factCsv {
+  font-family: 'Ubuntu Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--pg-select-border);
+  background: var(--pg-editor-bg);
+  color: var(--pg-editor-text);
+  resize: vertical;
+  min-height: 48px;
+}
+
+.factCsv:focus {
+  outline: 2px solid var(--pg-accent-blue);
+  outline-offset: -1px;
+}
+
+.factCsv::placeholder {
+  color: rgba(205, 214, 244, 0.3);
+}
+
+.factsEmpty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pg-muted);
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* ─── Right panel (results / terminal) ─── */
+
+.rightPanel {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  min-width: 0;
+}
+
+/* ─── Action bar ─── */
+
+.actionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--pg-toolbar-bg);
+  border-bottom: 1px solid var(--pg-toolbar-border);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.runBtn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 24px;
+  border-radius: 8px;
+  border: none;
+  background: var(--pg-button-primary-bg);
+  color: var(--pg-button-primary-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  box-shadow: 0 4px 12px var(--pg-button-primary-shadow);
+}
+
+.runBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--pg-button-primary-shadow);
+}
+
+.runBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.runBtnIcon {
+  font-size: 12px;
+}
+
+.stopBtn {
+  composes: runBtn;
+  background: var(--pg-error);
+  box-shadow: 0 4px 12px rgba(218, 54, 51, 0.3);
+}
+
+.stopBtn:hover:not(:disabled) {
+  box-shadow: 0 6px 16px rgba(218, 54, 51, 0.4);
+}
+
+.actionStats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--pg-muted);
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.statValue {
+  font-weight: 600;
+  color: var(--pg-text);
+  font-family: 'Ubuntu Mono', 'Fira Code', monospace;
+}
+
+/* ─── Results area ─── */
+
+.resultsArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.resultsTabs {
+  display: flex;
+  background: var(--pg-result-header);
+  border-bottom: 1px solid var(--pg-toolbar-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.resultTab {
+  composes: tab;
+  font-size: 12px;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+
+.resultTabActive {
+  composes: tabActive;
+}
+
+.resultsContent {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+
+.resultTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Ubuntu Mono', 'Fira Code', monospace;
+  font-size: 13px;
+}
+
+.resultTable thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.resultTable th {
+  padding: 8px 14px;
+  text-align: left;
+  background: var(--pg-result-header);
+  border-bottom: 2px solid var(--pg-toolbar-border);
+  color: var(--pg-accent-blue);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.resultTable td {
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--pg-card-border);
+  color: var(--pg-text);
+}
+
+.resultTable tr:hover td {
+  background-color: var(--pg-badge-bg);
+}
+
+.resultEmpty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--pg-muted);
+  gap: 8px;
+  padding: 40px;
+}
+
+.resultEmptyIcon {
+  font-size: 32px;
+  opacity: 0.4;
+}
+
+.resultEmptyText {
+  font-size: 14px;
+}
+
+.resultEmptyHint {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+/* ─── Incremental terminal ─── */
+
+.terminal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--pg-terminal-bg);
+  min-height: 0;
+}
+
+.terminalOutput {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  font-family: 'Ubuntu Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--pg-terminal-text);
+}
+
+.terminalLine {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.terminalPrompt {
+  color: var(--pg-terminal-prompt);
+}
+
+.terminalError {
+  color: var(--pg-error);
+}
+
+.terminalSuccess {
+  color: var(--pg-success);
+}
+
+.terminalInfo {
+  color: var(--pg-accent-blue);
+}
+
+.terminalMuted {
+  color: var(--pg-muted);
+  opacity: 0.6;
+}
+
+.terminalInputRow {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-top: 1px solid var(--pg-terminal-border);
+  background: var(--pg-terminal-bg);
+  flex-shrink: 0;
+}
+
+.terminalInputPrompt {
+  font-family: 'Ubuntu Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  color: var(--pg-terminal-prompt);
+  margin-right: 8px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.terminalInput {
+  flex: 1;
+  font-family: 'Ubuntu Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  background: none;
+  border: none;
+  color: var(--pg-terminal-text);
+  outline: none;
+  caret-color: var(--pg-editor-cursor);
+}
+
+.terminalInput::placeholder {
+  color: rgba(201, 209, 217, 0.3);
+}
+
+/* ─── Error / status messages ─── */
+
+.errorBanner {
+  padding: 10px 16px;
+  background: rgba(218, 54, 51, 0.1);
+  border-bottom: 1px solid var(--pg-error);
+  color: var(--pg-error);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.errorBanner button {
+  margin-left: auto;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--pg-error);
+  background: none;
+  color: var(--pg-error);
+  cursor: pointer;
+}
+
+/* ─── Loading spinner ─── */
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Scrollbars ─── */
+
+.editor::-webkit-scrollbar,
+.factsList::-webkit-scrollbar,
+.terminalOutput::-webkit-scrollbar,
+.resultsContent::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.editor::-webkit-scrollbar-track,
+.factsList::-webkit-scrollbar-track,
+.terminalOutput::-webkit-scrollbar-track,
+.resultsContent::-webkit-scrollbar-track {
+  background: var(--pg-scrollbar-track);
+}
+
+.editor::-webkit-scrollbar-thumb,
+.factsList::-webkit-scrollbar-thumb,
+.terminalOutput::-webkit-scrollbar-thumb,
+.resultsContent::-webkit-scrollbar-thumb {
+  background: var(--pg-scrollbar-thumb);
+  border-radius: 4px;
+}
+
+/* ─── Responsive ─── */
+
+@media screen and (max-width: 900px) {
+  .workspace {
+    flex-direction: column;
+  }
+
+  .leftPanel,
+  .rightPanel {
+    width: 100%;
+    border-right: none;
+  }
+
+  .leftPanel {
+    border-bottom: 1px solid var(--pg-card-border);
+    max-height: 50vh;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .headerRight {
+    flex-wrap: wrap;
+  }
+
+  .serverInput {
+    width: 140px;
+  }
+}

@@ -63,7 +63,11 @@ const config = {
             position: 'left',
             label: 'Tutorial',
           },
-
+          {
+            to: '/playground',
+            label: 'Playground',
+            position: 'left',
+          },
           // {to: '/blog', label: 'Blog', position: 'left'},
           {
             href: 'https://github.com/flowlog-rs/flowlog',

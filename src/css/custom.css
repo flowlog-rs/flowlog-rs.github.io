@@ -22,8 +22,8 @@
   --ifm-color-primary-lightest: #3a8fc9;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
-  --flowlog-accent-blue: #1e6ba3;
-  --flowlog-accent-brown: #5a3419;
+  --flowlog-accent-blue: #0087B9;
+  --flowlog-accent-brown: #5F2D12;
   --flowlog-highlight-bg: #f5f5f5;
 }
 
@@ -37,8 +37,8 @@
   --ifm-color-primary-lighter: #bce5ff;
   --ifm-color-primary-lightest: #ebf5ff;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
-  --flowlog-accent-blue: #8dcfff;
-  --flowlog-accent-brown: #d4a276;
+  --flowlog-accent-blue: #46BEE6;
+  --flowlog-accent-brown: #D2824B;
   --flowlog-highlight-bg: #2a2a2a;
 }
 
