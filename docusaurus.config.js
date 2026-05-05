@@ -47,6 +47,18 @@ const config = {
     ],
   ],
 
+  plugins: [
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'develop',
+        path: 'develop',
+        routeBasePath: 'develop',
+        sidebarPath: require.resolve('./sidebars-develop.js'),
+      },
+    ],
+  ],
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
@@ -62,6 +74,13 @@ const config = {
             docId: 'intro',
             position: 'left',
             label: 'Tutorial',
+          },
+          {
+            type: 'doc',
+            docId: 'index',
+            docsPluginId: 'develop',
+            position: 'left',
+            label: 'Develop',
           },
           {
             to: '/playground',
@@ -100,7 +119,10 @@ const config = {
                 label: 'Tutorial',
                 to: '/tutorial/intro',
               },
-
+              {
+                label: 'Develop',
+                to: '/develop',
+              },
             ],
           },
           {
