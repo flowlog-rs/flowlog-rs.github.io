@@ -20,7 +20,11 @@
       "Bash(npm run:*)",
       "Bash(source ~/.nvm/nvm.sh)",
       "Bash(nvm use:*)",
-      "Bash(npx docusaurus:*)"
+      "Bash(npx docusaurus:*)",
+      "Read(//home/zyu379/**)",
+      "Bash(grep -r \"useState\\\\|useEffect\\\\|import.*from.*react\" /home/zyu379/flowlog-rs.github.io/docs --include=*.mdx)",
+      "Bash(git -C /home/zyu379/FlowLog log --oneline -15)",
+      "Bash(nvm list:*)"
     ],
     "additionalDirectories": [
       "/home/zyu379/flowlog-rs.github.io/docs"

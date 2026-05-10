@@ -27,6 +27,20 @@ const sidebars = {
         'getting-started/install-flowlog',
         'getting-started/write-a-program',
         'getting-started/run-it',
+        'getting-started/system-config',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Library Mode',
+      collapsible: true,
+      link: {
+        type: 'doc',
+        id: 'library-mode/index',
+      },
+      items: [
+        'library-mode/setup',
+        'library-mode/configuration',
       ],
     },
     {

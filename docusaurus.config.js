@@ -55,6 +55,7 @@ const config = {
         logo: {
           alt: 'FlowLog Logo',
           src: 'img/flowlog.png',
+          height: 32,
         },
         items: [
           {
