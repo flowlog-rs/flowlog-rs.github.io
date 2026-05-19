@@ -8,14 +8,14 @@
   --pg-accent-brown: #5F2D12;
   --pg-card-bg: #fafafa;
   --pg-card-border: #e6e6e6;
-  --pg-editor-bg: #1e1e2e;
-  --pg-editor-text: #cdd6f4;
-  --pg-editor-line: #313244;
-  --pg-editor-cursor: #f5e0dc;
-  --pg-terminal-bg: #0d1117;
-  --pg-terminal-text: #c9d1d9;
-  --pg-terminal-prompt: #7ee787;
-  --pg-terminal-border: #30363d;
+  --pg-editor-bg: #f6f8fa;
+  --pg-editor-text: #1f2328;
+  --pg-editor-line: #eaeef2;
+  --pg-editor-cursor: #0087b9;
+  --pg-terminal-bg: #f6f8fa;
+  --pg-terminal-text: #1f2328;
+  --pg-terminal-prompt: #1a7f37;
+  --pg-terminal-border: #d8dee4;
   --pg-success: #2ea043;
   --pg-error: #da3633;
   --pg-warning: #d29922;
@@ -337,7 +337,8 @@
 }
 
 .editor::placeholder {
-  color: rgba(205, 214, 244, 0.3);
+  color: var(--pg-muted);
+  opacity: 0.55;
 }
 
 /* ─── Facts panel ─── */
@@ -446,7 +447,7 @@
   background: var(--pg-editor-bg);
   color: var(--pg-editor-text);
   resize: vertical;
-  min-height: 48px;
+  min-height: 120px;
 }
 
 .factCsv:focus {
@@ -455,7 +456,8 @@
 }
 
 .factCsv::placeholder {
-  color: rgba(205, 214, 244, 0.3);
+  color: var(--pg-muted);
+  opacity: 0.55;
 }
 
 .factsEmpty {
@@ -722,7 +724,8 @@
 }
 
 .terminalInput::placeholder {
-  color: rgba(201, 209, 217, 0.3);
+  color: var(--pg-muted);
+  opacity: 0.55;
 }
 
 /* ─── Error / status messages ─── */

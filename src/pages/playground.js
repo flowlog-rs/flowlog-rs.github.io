@@ -7,17 +7,15 @@ import styles from './playground.module.css';
 const EXAMPLES = [
   {
     name: 'Reachability',
-    program: `.in
-.decl Source(id: number)
-.input Source.csv
+    program: `.decl Source(id: int32)
+.input Source(IO="file", filename="Source.csv", delimiter=",")
 
-.decl Arc(x: number, y: number)
-.input Arc.csv
+.decl Arc(x: int32, y: int32)
+.input Arc(IO="file", filename="Arc.csv", delimiter=",")
 
-.out
-.decl Reach(id: number)
+.decl Reach(id: int32)
+.output Reach
 
-.rule
 Reach(y) :- Source(y).
 Reach(y) :- Reach(x), Arc(x, y).`,
     facts: [
@@ -27,14 +25,12 @@ Reach(y) :- Reach(x), Arc(x, y).`,
   },
   {
     name: 'Transitive Closure',
-    program: `.in
-.decl Arc(x: number, y: number)
-.input Arc.csv
+    program: `.decl Arc(x: int32, y: int32)
+.input Arc(IO="file", filename="Arc.csv", delimiter=",")
 
-.out
-.decl Tc(x: number, y: number)
+.decl Tc(x: int32, y: int32)
+.output Tc
 
-.rule
 Tc(x, y) :- Arc(x, y).
 Tc(x, y) :- Arc(z, y), Tc(x, z).`,
     facts: [
@@ -43,23 +39,21 @@ Tc(x, y) :- Arc(z, y), Tc(x, z).`,
   },
   {
     name: 'Pointer Analysis (Andersen)',
-    program: `.in
-.decl AddressOf(y: number, x: number)
-.input AddressOf.csv
+    program: `.decl AddressOf(y: int32, x: int32)
+.input AddressOf(IO="file", filename="AddressOf.csv", delimiter=",")
 
-.decl Assign(y: number, z: number)
-.input Assign.csv
+.decl Assign(y: int32, z: int32)
+.input Assign(IO="file", filename="Assign.csv", delimiter=",")
 
-.decl Load(y: number, x: number)
-.input Load.csv
+.decl Load(y: int32, x: int32)
+.input Load(IO="file", filename="Load.csv", delimiter=",")
 
-.decl Store(y: number, x: number)
-.input Store.csv
+.decl Store(y: int32, x: int32)
+.input Store(IO="file", filename="Store.csv", delimiter=",")
 
-.out
-.decl PointsTo(y: number, x: number)
+.decl PointsTo(y: int32, x: int32)
+.output PointsTo
 
-.rule
 PointsTo(y, x) :- AddressOf(y, x).
 PointsTo(y, x) :- Assign(y, z), PointsTo(z, x).
 PointsTo(y, w) :- Load(y, x), PointsTo(x, z), PointsTo(z, w).
@@ -73,14 +67,12 @@ PointsTo(y, w) :- Store(y, x), PointsTo(y, z), PointsTo(x, w).`,
   },
   {
     name: 'Connected Components',
-    program: `.in
-.decl Arc(x: number, y: number)
-.input Arc.csv
+    program: `.decl Arc(node: int32, b: int32)
+.input Arc(IO="file", filename="Arc.csv", delimiter=",")
 
-.out
-.decl CC(node: number, comp: number)
+.decl CC(node: int32, cc: int32)
+.output CC
 
-.rule
 CC(node, min(node)) :- Arc(node, _).
 CC(node, min(cc)) :- Arc(other, node), CC(other, cc).`,
     facts: [
@@ -91,9 +83,22 @@ CC(node, min(cc)) :- Arc(other, node), CC(other, cc).`,
 
 const DEFAULT_SERVER = 'http://localhost:8080';
 
+// Human-readable label for each batch progress phase reported by the server.
+const PHASE_LABELS = {
+  compiling: 'Compiling…',
+  compiled: 'Compiled ✓',
+  running: 'Running…',
+  done: 'Collecting results…',
+};
+
 // ─── API client ───
 
-async function apiBatchRun(server, { program, facts, workers, optimization }) {
+// Runs a batch program and streams progress. The server responds with
+// newline-delimited JSON; `onEvent` is called once per event:
+//   { type: 'status', phase: 'compiling' | 'compiled' | 'running' | 'done' }
+//   { type: 'result', results: {...}, stats: {...} }
+//   { type: 'error',  text: '...' }
+async function apiBatchRun(server, { program, facts, workers }, onEvent) {
   const factsObj = {};
   for (const f of facts) {
     if (f.name.trim()) {
@@ -107,21 +112,40 @@ async function apiBatchRun(server, { program, facts, workers, optimization }) {
     body: JSON.stringify({
       program,
       facts: factsObj,
-      options: { workers, optimization },
+      options: { workers },
     }),
   });
 
-  if (!res.ok) {
-    const text = await res.text();
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => '');
     throw new Error(text || `Server error: ${res.status}`);
   }
-  return res.json();
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const flushLine = (line) => {
+    const trimmed = line.trim();
+    if (trimmed) onEvent(JSON.parse(trimmed));
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let nl;
+    while ((nl = buffer.indexOf('\n')) >= 0) {
+      flushLine(buffer.slice(0, nl));
+      buffer = buffer.slice(nl + 1);
+    }
+  }
+  flushLine(buffer);
 }
 
-function createSession(server, program, workers, optimization) {
+function createSession(server, program, workers) {
   const params = new URLSearchParams({
     workers: String(workers),
-    optimization: String(optimization),
   });
 
   const wsUrl = server.replace(/^http/, 'ws') + `/api/session?${params}`;
@@ -140,7 +164,6 @@ export default function Playground() {
   // Mode & config
   const [mode, setMode] = useState('batch'); // 'batch' | 'incremental'
   const [workers, setWorkers] = useState(4);
-  const [optimization, setOptimization] = useState(3);
   const [server, setServer] = useState(DEFAULT_SERVER);
 
   // Execution state
@@ -148,6 +171,7 @@ export default function Playground() {
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null); // { relations: { name: rows[][] }, stats }
   const [activeResult, setActiveResult] = useState(null);
+  const [phase, setPhase] = useState(null); // batch progress: compiling | compiled | running | done
 
   // Incremental mode state
   const [sessionActive, setSessionActive] = useState(false);
@@ -206,38 +230,44 @@ export default function Playground() {
     setError(null);
     setResults(null);
     setActiveResult(null);
+    setPhase('compiling');
 
     try {
-      const data = await apiBatchRun(server, {
-        program,
-        facts,
-        workers,
-        optimization,
-      });
-
-      // data: { results: { RelName: "csv content", ... }, stats: { time_ms, tuples } }
-      const relations = {};
-      if (data.results) {
-        for (const [name, csv] of Object.entries(data.results)) {
-          const rows = csv
-            .split('\n')
-            .filter(line => line.trim() !== '')
-            .map(line => line.split(','));
-          relations[name] = rows;
-        }
-      }
-
-      setResults({ relations, stats: data.stats || {} });
-      const names = Object.keys(relations);
-      if (names.length > 0) {
-        setActiveResult(names[0]);
-      }
+      await apiBatchRun(
+        server,
+        { program, facts, workers },
+        (evt) => {
+          if (evt.type === 'status') {
+            // Live progress: compiling → compiled → running → done
+            setPhase(evt.phase);
+          } else if (evt.type === 'error') {
+            setError(evt.text || 'Execution failed');
+          } else if (evt.type === 'result') {
+            // evt: { results: { RelName: "csv", ... }, stats: { time_ms, tuples } }
+            const relations = {};
+            if (evt.results) {
+              for (const [name, csv] of Object.entries(evt.results)) {
+                relations[name] = csv
+                  .split('\n')
+                  .filter(line => line.trim() !== '')
+                  .map(line => line.split(','));
+              }
+            }
+            setResults({ relations, stats: evt.stats || {} });
+            const names = Object.keys(relations);
+            if (names.length > 0) {
+              setActiveResult(names[0]);
+            }
+          }
+        },
+      );
     } catch (err) {
       setError(err.message || 'Failed to connect to server');
     } finally {
       setRunning(false);
+      setPhase(null);
     }
-  }, [server, program, facts, workers, optimization]);
+  }, [server, program, facts, workers]);
 
   // ─── Incremental session ───
 
@@ -254,7 +284,7 @@ export default function Playground() {
     addTerminalLine('info', `Connecting to ${server}...`);
 
     try {
-      const ws = createSession(server, program, workers, optimization);
+      const ws = createSession(server, program, workers);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -319,7 +349,7 @@ export default function Playground() {
     } catch (err) {
       setError(err.message);
     }
-  }, [server, program, facts, workers, optimization, addTerminalLine]);
+  }, [server, program, facts, workers, addTerminalLine]);
 
   const stopSession = useCallback(() => {
     if (wsRef.current) {
@@ -345,6 +375,39 @@ export default function Playground() {
   // ─── Render helpers ───
 
   const renderResultsPane = () => {
+    // While a batch run is in flight, show the server-reported progress steps.
+    if (running && mode === 'batch') {
+      const steps = [
+        { key: 'compiling', label: 'Compiling program' },
+        { key: 'running', label: 'Running evaluation' },
+        { key: 'done', label: 'Collecting results' },
+      ];
+      const stepOf = { compiling: 0, compiled: 0, running: 1, done: 2 };
+      const current = stepOf[phase] ?? 0;
+      return (
+        <div className={styles.resultEmpty}>
+          <div className={styles.resultEmptyIcon}><span className={styles.spinner} /></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem' }}>
+            {steps.map((s, i) => {
+              const state = i < current ? 'done' : i === current ? 'active' : 'pending';
+              return (
+                <div
+                  key={s.key}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    opacity: state === 'pending' ? 0.4 : 1,
+                    fontWeight: state === 'active' ? 600 : 400,
+                  }}
+                >
+                  <span>{state === 'done' ? '✓' : state === 'active' ? '▶' : '○'}</span>
+                  <span>{s.label}{state === 'active' ? '…' : ''}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
     if (!results || Object.keys(results.relations).length === 0) {
       return (
         <div className={styles.resultEmpty}>
@@ -461,22 +524,9 @@ export default function Playground() {
                 className={styles.numberInput}
                 value={workers}
                 min={1}
-                max={64}
-                onChange={e => setWorkers(Math.max(1, parseInt(e.target.value) || 1))}
+                max={8}
+                onChange={e => setWorkers(Math.min(8, Math.max(1, parseInt(e.target.value) || 1)))}
               />
-            </div>
-            <div className={styles.controlGroup}>
-              <span className={styles.label}>-O</span>
-              <select
-                className={styles.select}
-                value={optimization}
-                onChange={e => setOptimization(parseInt(e.target.value))}
-              >
-                <option value={0}>0 (none)</option>
-                <option value={1}>1 (SIP)</option>
-                <option value={2}>2 (planning)</option>
-                <option value={3}>3 (SIP + planning)</option>
-              </select>
             </div>
             <div className={styles.serverGroup}>
               <span className={styles.label}>Server</span>
@@ -593,7 +643,7 @@ export default function Playground() {
                           value={fact.csv}
                           onChange={e => updateFact(idx, 'csv', e.target.value)}
                           placeholder="CSV rows (one tuple per line)"
-                          rows={3}
+                          rows={6}
                         />
                       </div>
                     ))}
@@ -613,7 +663,7 @@ export default function Playground() {
                   disabled={running}
                 >
                   {running ? (
-                    <><span className={styles.spinner} /> Running...</>
+                    <><span className={styles.spinner} /> {PHASE_LABELS[phase] || 'Running…'}</>
                   ) : (
                     <><span className={styles.runBtnIcon}>&#9655;</span> Run</>
                   )}

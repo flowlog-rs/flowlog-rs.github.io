@@ -1,0 +1,26 @@
+[package]
+name = "flowlog-playground-server"
+version = "0.1.0"
+edition = "2021"
+description = "Backend server powering the FlowLog interactive playground"
+publish = false
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util", "fs", "sync", "time", "signal", "net"] }
+tokio-stream = "0.1"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+sha2 = "0.11"
+hex = "0.4"
+regex = "1"
+futures-util = "0.3"
+
+[profile.release]
+opt-level = 2

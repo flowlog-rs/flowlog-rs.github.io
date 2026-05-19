@@ -4,6 +4,9 @@
 # Production
 /build
 
+# Playground server (Rust)
+/server/target
+
 # Generated files
 .docusaurus
 .cache-loader
