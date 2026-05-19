@@ -81,7 +81,7 @@ CC(node, min(cc)) :- Arc(other, node), CC(other, cc).`,
   },
 ];
 
-const DEFAULT_SERVER = 'http://localhost:8080';
+const DEFAULT_SERVER = 'https://characters-expenditure-london-escape.trycloudflare.com';
 
 // Human-readable label for each batch progress phase reported by the server.
 const PHASE_LABELS = {
@@ -529,14 +529,6 @@ export default function Playground() {
               />
             </div>
             <div className={styles.serverGroup}>
-              <span className={styles.label}>Server</span>
-              <input
-                type="text"
-                className={styles.serverInput}
-                value={server}
-                onChange={e => setServer(e.target.value)}
-                placeholder="http://localhost:8080"
-              />
               <span
                 className={`${styles.statusDot} ${
                   sessionActive ? styles.statusConnected :
