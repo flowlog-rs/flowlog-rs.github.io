@@ -62,7 +62,7 @@ impl Config {
 
         let allowed_origins = env_string(
             "ALLOWED_ORIGINS",
-            "https://flowlog-rs.github.io,http://localhost:3000",
+            "https://flowlog-rs.github.io, http://localhost:3001",
         )
         .split(',')
         .map(|s| s.trim().to_string())

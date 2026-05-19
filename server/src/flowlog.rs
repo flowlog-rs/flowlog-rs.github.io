@@ -2,7 +2,7 @@
 //!
 //! FlowLog compiles each Datalog program into a standalone native executable.
 //! Compilation is expensive, so compiled binaries are cached under
-//! `work_dir/cache/<hash>/prog`, keyed by the program text + mode + sip flag.
+//! `work_dir/cache/<hash>/prog`, keyed by the program text + mode.
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -46,11 +46,11 @@ pub enum FlowlogError {
     Io(#[from] std::io::Error),
 }
 
-/// Stable cache key for a (program, mode, sip) triple.
-fn cache_key(program: &str, mode: Mode, sip: bool) -> String {
+/// Stable cache key for a (program, mode) pair.
+fn cache_key(program: &str, mode: Mode) -> String {
     let mut h = Sha256::new();
     h.update(program.as_bytes());
-    h.update([mode as u8, sip as u8]);
+    h.update([mode as u8]);
     hex::encode(&h.finalize()[..16])
 }
 
@@ -63,9 +63,8 @@ pub async fn compile(
     cfg: &Config,
     program: &str,
     mode: Mode,
-    sip: bool,
 ) -> Result<PathBuf, FlowlogError> {
-    let key = cache_key(program, mode, sip);
+    let key = cache_key(program, mode);
     let cache_dir = cfg.work_dir.join("cache").join(&key);
     let bin = cache_dir.join("prog");
 
@@ -73,7 +72,7 @@ pub async fn compile(
         tracing::info!(%key, "compile cache hit");
         return Ok(bin);
     }
-    tracing::info!(%key, ?mode, sip, "compiling program");
+    tracing::info!(%key, ?mode, "compiling program");
 
     // Compile inside a throwaway directory, then promote the binary to the
     // cache. The `.dl` source and the compiler's scratch files are discarded.
@@ -102,9 +101,6 @@ pub async fn compile(
         Mode::Incremental => {
             cmd.args(["-F", ".", "-D", "-"]);
         }
-    }
-    if sip {
-        cmd.arg("--sip");
     }
 
     let output = run_capture(cmd, cfg.compile_timeout)

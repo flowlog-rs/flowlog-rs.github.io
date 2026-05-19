@@ -44,15 +44,12 @@ pub struct RunRequest {
 struct Options {
     #[serde(default = "default_workers")]
     workers: u32,
-    #[serde(default)]
-    optimization: u32,
 }
 
 impl Default for Options {
     fn default() -> Self {
         Options {
             workers: default_workers(),
-            optimization: 0,
         }
     }
 }
@@ -112,12 +109,9 @@ pub async fn run_handler(
     }
 
     let workers = req.options.workers.clamp(1, cfg.max_workers);
-    // Playground -O levels: 1 = SIP, 3 = SIP + planning. FlowLog exposes the
-    // `--sip` flag; there is no separate planning flag yet.
-    let sip = matches!(req.options.optimization, 1 | 3);
 
     let (tx, rx) = mpsc::channel::<Result<String, Infallible>>(16);
-    tokio::spawn(batch_job(cfg, req, workers, sip, tx));
+    tokio::spawn(batch_job(cfg, req, workers, tx));
 
     Response::builder()
         .status(StatusCode::OK)
@@ -136,7 +130,6 @@ async fn batch_job(
     cfg: Arc<Config>,
     req: RunRequest,
     workers: u32,
-    sip: bool,
     tx: mpsc::Sender<Result<String, Infallible>>,
 ) {
     // Send a JSON line; bail out if the client has disconnected.
@@ -149,7 +142,7 @@ async fn batch_job(
     }
 
     emit!(json!({"type": "status", "phase": "compiling"}));
-    let bin = match flowlog::compile(&cfg, &req.program, Mode::Batch, sip).await {
+    let bin = match flowlog::compile(&cfg, &req.program, Mode::Batch).await {
         Ok(b) => b,
         Err(e) => {
             emit!(json!({"type": "error", "text": e.to_string()}));

@@ -33,7 +33,6 @@ use crate::flowlog::{self, Mode};
 #[derive(Deserialize)]
 pub struct SessionParams {
     workers: Option<u32>,
-    optimization: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -90,7 +89,6 @@ async fn run_session(
     out: &mpsc::Sender<Message>,
 ) -> Result<(), String> {
     let workers = params.workers.unwrap_or(4).clamp(1, cfg.max_workers);
-    let sip = matches!(params.optimization.unwrap_or(0), 1 | 3);
 
     // 1. Wait for the init message carrying the program + facts.
     let (program, facts) = match recv_init(ws_rx).await? {
@@ -114,7 +112,7 @@ async fn run_session(
 
     // 2. Compile the program in incremental mode.
     let _ = out.send(text_msg("info", "Compiling program...")).await;
-    let bin = flowlog::compile(cfg, &program, Mode::Incremental, sip)
+    let bin = flowlog::compile(cfg, &program, Mode::Incremental)
         .await
         .map_err(|e| e.to_string())?;
     let _ = out
