@@ -7,6 +7,9 @@
 # Playground server (Rust)
 /server/target
 
+# Runtime state for Makefile-managed services (pid files, logs)
+/.run/
+
 # Generated files
 .docusaurus
 .cache-loader
