@@ -81,7 +81,7 @@ CC(node, min(cc)) :- Arc(other, node), CC(other, cc).`,
   },
 ];
 
-const DEFAULT_SERVER = 'https://characters-expenditure-london-escape.trycloudflare.com';
+const DEFAULT_SERVER = 'https://webmaster-celtic-implications-highway.trycloudflare.com';
 
 // Human-readable label for each batch progress phase reported by the server.
 const PHASE_LABELS = {
