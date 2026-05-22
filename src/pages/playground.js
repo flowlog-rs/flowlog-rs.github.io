@@ -32,37 +32,9 @@ Reach(y) :- Reach(x), Arc(x, y).`,
 .output Tc
 
 Tc(x, y) :- Arc(x, y).
-Tc(x, y) :- Arc(z, y), Tc(x, z).`,
+Tc(x, y) :- Tc(x, z), Arc(z, y).`,
     facts: [
       { name: 'Arc.csv', csv: '1,2\n2,3\n3,4' },
-    ],
-  },
-  {
-    name: 'Pointer Analysis (Andersen)',
-    program: `.decl AddressOf(y: int32, x: int32)
-.input AddressOf(IO="file", filename="AddressOf.csv", delimiter=",")
-
-.decl Assign(y: int32, z: int32)
-.input Assign(IO="file", filename="Assign.csv", delimiter=",")
-
-.decl Load(y: int32, x: int32)
-.input Load(IO="file", filename="Load.csv", delimiter=",")
-
-.decl Store(y: int32, x: int32)
-.input Store(IO="file", filename="Store.csv", delimiter=",")
-
-.decl PointsTo(y: int32, x: int32)
-.output PointsTo
-
-PointsTo(y, x) :- AddressOf(y, x).
-PointsTo(y, x) :- Assign(y, z), PointsTo(z, x).
-PointsTo(y, w) :- Load(y, x), PointsTo(x, z), PointsTo(z, w).
-PointsTo(y, w) :- Store(y, x), PointsTo(y, z), PointsTo(x, w).`,
-    facts: [
-      { name: 'AddressOf.csv', csv: '1,100\n2,200' },
-      { name: 'Assign.csv', csv: '3,1' },
-      { name: 'Load.csv', csv: '' },
-      { name: 'Store.csv', csv: '' },
     ],
   },
   {
@@ -77,6 +49,96 @@ CC(node, min(node)) :- Arc(node, _).
 CC(node, min(cc)) :- Arc(other, node), CC(other, cc).`,
     facts: [
       { name: 'Arc.csv', csv: '1,2\n2,3\n4,5\n5,6\n7,8' },
+    ],
+  },
+  {
+    name: 'Shortest Paths (SSSP)',
+    program: `.decl Arc(src: int32, dest: int32, weight: int32)
+.input Arc(IO="file", filename="Arc.csv", delimiter=",")
+
+.decl Id(src: int32)
+.input Id(IO="file", filename="Id.csv", delimiter=",")
+
+.decl Sssp(x: int32, y: int32)
+.output Sssp
+
+Sssp(x, min(0)) :- Id(x).
+Sssp(y, min(d1 + d2)) :- Sssp(x, d1), Arc(x, y, d2).`,
+    facts: [
+      { name: 'Id.csv', csv: '1' },
+      { name: 'Arc.csv', csv: '1,2,3\n2,3,5\n1,3,10\n3,4,2\n2,4,7' },
+    ],
+  },
+  {
+    name: 'Same Generation',
+    program: `.decl Arc(src: int32, dest: int32)
+.input Arc(IO="file", filename="Arc.csv", delimiter=",")
+
+.decl Sg(src: int32, dest: int32)
+.output Sg
+
+Sg(x, y) :- Arc(a, x), Arc(a, y), x != y.
+Sg(x, y) :- Arc(a, x), Sg(a, b), Arc(b, y).`,
+    facts: [
+      { name: 'Arc.csv', csv: '1,2\n1,3\n2,4\n2,5\n3,6' },
+    ],
+  },
+  {
+    name: 'Pointer Analysis (Andersen)',
+    program: `.decl AddressOf(y: int32, x: int32)
+.input AddressOf(IO="file", filename="AddressOf.csv", delimiter=",")
+
+.decl Assign(y: int32, x: int32)
+.input Assign(IO="file", filename="Assign.csv", delimiter=",")
+
+.decl Load(y: int32, x: int32)
+.input Load(IO="file", filename="Load.csv", delimiter=",")
+
+.decl Store(y: int32, x: int32)
+.input Store(IO="file", filename="Store.csv", delimiter=",")
+
+.decl PointsTo(y: int32, x: int32)
+.output PointsTo
+
+PointsTo(y, x) :- AddressOf(y, x).
+PointsTo(y, x) :- Assign(y, z), PointsTo(z, x).
+PointsTo(y, w) :- Load(y, x), PointsTo(x, z), PointsTo(z, w).
+PointsTo(z, w) :- Store(y, x), PointsTo(y, z), PointsTo(x, w).`,
+    facts: [
+      { name: 'AddressOf.csv', csv: '1,100\n2,200\n3,300' },
+      { name: 'Assign.csv', csv: '4,1\n5,2' },
+      { name: 'Load.csv', csv: '6,4' },
+      { name: 'Store.csv', csv: '7,5' },
+    ],
+  },
+  {
+    name: 'Context-Sensitive Alias (CSPA)',
+    program: `.decl Assign(x: int32, y: int32)
+.input Assign(IO="file", filename="Assign.csv", delimiter=",")
+
+.decl Dereference(x: int32, y: int32)
+.input Dereference(IO="file", filename="Dereference.csv", delimiter=",")
+
+.decl ValueFlow(x: int32, y: int32)
+.output ValueFlow
+.decl MemoryAlias(x: int32, y: int32)
+.output MemoryAlias
+.decl ValueAlias(x: int32, y: int32)
+.output ValueAlias
+
+ValueFlow(y, x) :- Assign(y, x).
+ValueFlow(x, y) :- Assign(x, z), MemoryAlias(z, y).
+ValueFlow(x, y) :- ValueFlow(x, z), ValueFlow(z, y).
+MemoryAlias(x, w) :- Dereference(y, x), ValueAlias(y, z), Dereference(z, w).
+ValueAlias(x, y) :- ValueFlow(z, x), ValueFlow(z, y).
+ValueAlias(x, y) :- ValueFlow(z, x), MemoryAlias(z, w), ValueFlow(w, y).
+ValueFlow(x, x) :- Assign(x, y).
+ValueFlow(x, x) :- Assign(y, x).
+MemoryAlias(x, x) :- Assign(y, x).
+MemoryAlias(x, x) :- Assign(x, y).`,
+    facts: [
+      { name: 'Assign.csv', csv: '1,2\n2,3\n4,2' },
+      { name: 'Dereference.csv', csv: '5,1\n6,4' },
     ],
   },
 ];
