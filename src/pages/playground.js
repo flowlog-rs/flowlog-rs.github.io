@@ -282,6 +282,61 @@ export default function Playground() {
   const terminalOutputRef = useRef(null);
   const terminalInputRef = useRef(null);
 
+  // Resizable layout: store the split as grow ratios (out of 100). The panels
+  // each get `flex: <ratio> 0 0` so they share the available space minus the
+  // 5px handle — no overflow, no rigid bases.
+  const [leftRatio, setLeftRatio] = useState(50);
+  const [topRatio, setTopRatio] = useState(60);
+  const workspaceRef = useRef(null);
+  const splitColumnRef = useRef(null);
+
+  const startVerticalDrag = useCallback((e) => {
+    if (!workspaceRef.current) return;
+    e.preventDefault();
+    const rect = workspaceRef.current.getBoundingClientRect();
+    const onMove = (ev) => {
+      const clientX = ev.clientX ?? ev.touches?.[0]?.clientX;
+      if (clientX == null) return;
+      const pct = ((clientX - rect.left) / rect.width) * 100;
+      setLeftRatio(Math.max(20, Math.min(80, pct)));
+    };
+    const onEnd = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onEnd);
+  }, []);
+
+  // Horizontal split lives inside a dedicated wrapper (`splitColumnRef`)
+  // that excludes the action bar, so the cursor position maps directly to
+  // the resultsArea/terminal boundary without an implicit offset.
+  const startHorizontalDrag = useCallback((e) => {
+    if (!splitColumnRef.current) return;
+    e.preventDefault();
+    const rect = splitColumnRef.current.getBoundingClientRect();
+    const onMove = (ev) => {
+      const clientY = ev.clientY ?? ev.touches?.[0]?.clientY;
+      if (clientY == null) return;
+      const pct = ((clientY - rect.top) / rect.height) * 100;
+      setTopRatio(Math.max(20, Math.min(85, pct)));
+    };
+    const onEnd = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onEnd);
+  }, []);
+
   // Auto-scroll terminal
   useEffect(() => {
     if (terminalOutputRef.current) {
@@ -666,9 +721,12 @@ export default function Playground() {
         )}
 
         {/* ─── Workspace ─── */}
-        <div className={styles.workspace}>
+        <div className={styles.workspace} ref={workspaceRef}>
           {/* ─── Left: Editor + Facts ─── */}
-          <div className={styles.leftPanel}>
+          <div
+            className={styles.leftPanel}
+            style={{ flex: `${leftRatio} 0 0`, minWidth: 0 }}
+          >
             <div className={styles.tabBar}>
               <button
                 className={`${styles.tab} ${activeTab === 'program' ? styles.tabActive : ''}`}
@@ -761,8 +819,20 @@ export default function Playground() {
             )}
           </div>
 
+          {/* Draggable vertical splitter between Left and Right panels. */}
+          <div
+            className={styles.dragHandleV}
+            onPointerDown={startVerticalDrag}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize editor / results panel"
+          />
+
           {/* ─── Right: Results / Terminal ─── */}
-          <div className={styles.rightPanel}>
+          <div
+            className={styles.rightPanel}
+            style={{ flex: `${100 - leftRatio} 0 0`, minWidth: 0 }}
+          >
             <div className={styles.actionBar}>
               {mode === 'batch' ? (
                 <button
@@ -809,13 +879,28 @@ export default function Playground() {
                 {renderResultsPane()}
               </div>
             ) : (
-              <>
+              <div className={styles.splitColumn} ref={splitColumnRef}>
                 {/* Top: cumulative results table (with per-commit delta
-                    highlights). Bottom: command terminal. */}
-                <div className={styles.resultsArea}>
+                    highlights). Bottom: command terminal. The wrapper
+                    excludes the action bar so the drag handle's position
+                    matches the cursor 1:1. */}
+                <div
+                  className={styles.resultsArea}
+                  style={{ flex: `${topRatio} 0 0`, minHeight: 0 }}
+                >
                   {renderResultsPane()}
                 </div>
-                <div className={styles.terminal}>
+                <div
+                  className={styles.dragHandleH}
+                  onPointerDown={startHorizontalDrag}
+                  role="separator"
+                  aria-orientation="horizontal"
+                  aria-label="Resize results / terminal"
+                />
+                <div
+                  className={styles.terminal}
+                  style={{ flex: `${100 - topRatio} 0 0`, minHeight: 0 }}
+                >
                   <div className={styles.terminalHeader}>Engine output</div>
                   <div className={styles.terminalOutput} ref={terminalOutputRef}>
                     {terminalLines.length === 0 ? (
@@ -858,7 +943,7 @@ export default function Playground() {
                     </div>
                   )}
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
