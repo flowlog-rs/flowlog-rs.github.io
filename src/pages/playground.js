@@ -819,16 +819,18 @@ export default function Playground() {
                   <div className={styles.terminalHeader}>Engine output</div>
                   <div className={styles.terminalOutput} ref={terminalOutputRef}>
                     {terminalLines.length === 0 ? (
-                      <div className={styles.terminalMuted}>
-                        Click "Start Session" to connect to the server and begin an incremental session.
-                        {'\n\n'}Available commands after connecting:
-                        {'\n'}  begin        - Start a new transaction
-                        {'\n'}  put R a b    - Insert tuple (a, b) into relation R
-                        {'\n'}  put R a b -1 - Delete tuple (a, b) from relation R
-                        {'\n'}  file R f.csv - Load tuples from CSV file
-                        {'\n'}  commit       - Commit transaction and advance time
-                        {'\n'}  abort        - Rollback current transaction
-                        {'\n'}  help         - Show all commands
+                      <div className={styles.terminalPlaceholder}>
+                        <p>
+                          Click <strong>Start Session</strong> to connect, then use these commands:
+                        </p>
+                        <dl className={styles.commandList}>
+                          <dt>begin</dt><dd>start a transaction</dd>
+                          <dt>put R a b +1</dt><dd>insert tuple (a, b) into R</dd>
+                          <dt>put R a b -1</dt><dd>delete tuple (a, b) from R</dd>
+                          <dt>commit</dt><dd>commit the transaction and advance time</dd>
+                          <dt>abort</dt><dd>rollback the current transaction</dd>
+                          <dt>help</dt><dd>show all commands</dd>
+                        </dl>
                       </div>
                     ) : (
                       terminalLines.map((line, i) => (
@@ -850,7 +852,7 @@ export default function Playground() {
                         value={terminalInput}
                         onChange={e => setTerminalInput(e.target.value)}
                         onKeyDown={handleTerminalKeyDown}
-                        placeholder="begin | put Relation args | commit | abort | help"
+                        placeholder="begin | put R a b +1 | commit | abort | help"
                         autoFocus
                       />
                     </div>
