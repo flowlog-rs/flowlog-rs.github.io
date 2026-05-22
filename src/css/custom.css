@@ -4,12 +4,13 @@
  * work well for content-centric websites.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap');
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --ifm-heading-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ifm-heading-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   --ifm-h1-font-size: 1.5rem;
   --ifm-h2-font-size: 1.2rem;
   --ifm-h3-font-size: 1.1rem;
@@ -59,6 +60,44 @@
 
 .footer__items {
   font-size: 0.9rem;
+}
+
+/* Brand the navbar title "FlowLog" with the same Flow/Log color split */
+.navbar__title {
+  font-size: 0 !important;
+  font-family: 'Ubuntu', 'Cambay', sans-serif;
+  font-weight: 700;
+}
+
+.navbar__title::before {
+  content: 'Flow';
+  font-size: 1.05rem;
+  color: var(--flowlog-accent-blue);
+}
+
+.navbar__title::after {
+  content: 'Log';
+  font-size: 1.05rem;
+  color: var(--flowlog-accent-brown);
+}
+
+/* Brand the FlowLog column title in the dark footer */
+.footer--dark .footer__col:first-child .footer__title {
+  font-size: 0 !important;
+  font-family: 'Ubuntu', 'Cambay', sans-serif;
+  font-weight: 700;
+}
+
+.footer--dark .footer__col:first-child .footer__title::before {
+  content: 'Flow';
+  font-size: 1.1rem;
+  color: #46BEE6;
+}
+
+.footer--dark .footer__col:first-child .footer__title::after {
+  content: 'Log';
+  font-size: 1.1rem;
+  color: #D2824B;
 }
 
 /* Custom style for the word 'FlowLog' */
