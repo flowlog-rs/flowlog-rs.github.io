@@ -133,10 +133,11 @@ start: $(FLOWLOG_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN)
 	  echo "==> backend already running (pid $$(cat $(BACKEND_PID)))"; \
 	else \
 	  echo '==> starting backend (detached)  log: $(BACKEND_LOG)'; \
-	  nohup env FLOWLOG_COMPILER=$(FLOWLOG_BIN) \
+	  nohup bash -c 'source $(CARGO_ENV) 2>/dev/null || true; \
+	    FLOWLOG_COMPILER=$(FLOWLOG_BIN) \
 	    BIND_ADDR=$(BIND_ADDR) \
-	    ALLOWED_ORIGINS='$(ALLOWED_ORIGINS)' \
-	    $(SERVER_BIN) >$(BACKEND_LOG) 2>&1 & \
+	    ALLOWED_ORIGINS="$(ALLOWED_ORIGINS)" \
+	    exec $(SERVER_BIN)' >$(BACKEND_LOG) 2>&1 & \
 	  echo $$! > $(BACKEND_PID); \
 	  sleep 1; \
 	  if ! kill -0 $$(cat $(BACKEND_PID)) 2>/dev/null; then \

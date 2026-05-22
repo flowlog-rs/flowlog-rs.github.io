@@ -130,37 +130,34 @@ async fn run_session(
             .map_err(|e| e.to_string())?;
     }
 
-    // 4. Spawn the interactive engine.
-    let mut child = Command::new(&bin)
+    // 4. Spawn the interactive engine. We launch it through `sh -c` with
+    //    `2>&1` so the engine's stdout and stderr share a single pipe at
+    //    the OS level — otherwise two concurrent reader tasks would race
+    //    and lines could appear in the terminal out of their emit order.
+    //    `exec` makes sh be replaced by the engine, preserving the PID so
+    //    `kill_on_drop` / `child.wait()` still target the engine itself.
+    let mut child = Command::new("/bin/sh")
+        .arg("-c")
+        .arg(r#"exec "$0" "$@" 2>&1"#)
+        .arg(&bin)
         .arg("-w")
         .arg(workers.to_string())
         .current_dir(work.path())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::null())
         .kill_on_drop(true)
         .spawn()
         .map_err(|e| format!("failed to start engine: {e}"))?;
 
     let mut stdin = child.stdin.take().expect("piped");
     let stdout = child.stdout.take().expect("piped");
-    let stderr = child.stderr.take().expect("piped");
 
-    // 5. Merge engine stdout + stderr into one line stream feeding the
-    //    accumulator. FlowLog prints prompts/status on stdout and result
-    //    tuples on stderr, so both streams must reach the accumulator.
+    // 5. Single reader: stdout already carries both streams, so lines
+    //    arrive in the order the engine emitted them.
     let (line_tx, mut line_rx) = mpsc::channel::<String>(1024);
-    let stdout_lines = line_tx.clone();
     let stdout_reader = tokio::spawn(async move {
         let mut lines = BufReader::new(stdout).lines();
-        while let Ok(Some(line)) = lines.next_line().await {
-            if stdout_lines.send(line).await.is_err() {
-                break;
-            }
-        }
-    });
-    let stderr_reader = tokio::spawn(async move {
-        let mut lines = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = lines.next_line().await {
             if line_tx.send(line).await.is_err() {
                 break;
@@ -233,7 +230,6 @@ async fn run_session(
     drop(stdin);
     let _ = child.kill().await;
     stdout_reader.abort();
-    stderr_reader.abort();
     accumulator_task.abort();
     Ok(())
 }
@@ -267,10 +263,13 @@ static TUPLE_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Accumulates per-commit deltas into full relation snapshots so the client
-/// can render a result table, not just a stream of `+1`/`-1` lines.
+/// can render a result table, not just a stream of `+1`/`-1` lines. Also
+/// tracks which rows flipped between present/absent within the pending
+/// commit, so the client can highlight just-added and just-removed rows.
 #[derive(Default)]
 struct Accumulator {
     relations: HashMap<String, HashMap<Vec<String>, i64>>,
+    pending_delta: HashMap<String, HashMap<Vec<String>, i64>>,
     last_t: i64,
     pending: bool,
 }
@@ -289,6 +288,12 @@ impl Accumulator {
             let diff: i64 = caps[4].parse().unwrap_or(0);
             *self
                 .relations
+                .entry(relation.clone())
+                .or_default()
+                .entry(row.clone())
+                .or_insert(0) += diff;
+            *self
+                .pending_delta
                 .entry(relation)
                 .or_default()
                 .entry(row)
@@ -306,11 +311,13 @@ impl Accumulator {
         if self.pending {
             self.pending = false;
             let _ = out.send(self.snapshot()).await;
+            self.pending_delta.clear();
         }
     }
 
     fn snapshot(&self) -> Message {
         let mut results = serde_json::Map::new();
+        let mut deltas = serde_json::Map::new();
         let mut tuples = 0usize;
         for (relation, rows) in &self.relations {
             let mut lines: Vec<String> = rows
@@ -322,10 +329,41 @@ impl Accumulator {
             lines.sort();
             results.insert(relation.clone(), json!(lines.join("\n")));
         }
+        // For each relation, derive which rows flipped present <-> absent in
+        // the pending commit. `pre = cur - delta` lets us classify without
+        // snapshotting full state at commit-begin.
+        for (relation, delta_rows) in &self.pending_delta {
+            let mut added: Vec<String> = Vec::new();
+            let mut removed: Vec<String> = Vec::new();
+            let cur_rows = self.relations.get(relation);
+            for (row, &delta) in delta_rows {
+                if delta == 0 {
+                    continue;
+                }
+                let cur = cur_rows.and_then(|m| m.get(row)).copied().unwrap_or(0);
+                let pre = cur - delta;
+                let row_str = row.join(",");
+                if pre == 0 && cur > 0 {
+                    added.push(row_str);
+                } else if pre > 0 && cur == 0 {
+                    removed.push(row_str);
+                }
+            }
+            if added.is_empty() && removed.is_empty() {
+                continue;
+            }
+            added.sort();
+            removed.sort();
+            deltas.insert(
+                relation.clone(),
+                json!({ "added": added, "removed": removed }),
+            );
+        }
         Message::Text(
             json!({
                 "type": "result",
                 "results": results,
+                "deltas": deltas,
                 "stats": { "timestamp": self.last_t, "tuples": tuples },
             })
             .to_string()

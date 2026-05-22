@@ -81,7 +81,7 @@ CC(node, min(cc)) :- Arc(other, node), CC(other, cc).`,
   },
 ];
 
-const DEFAULT_SERVER = 'https://webmaster-celtic-implications-highway.trycloudflare.com';
+const DEFAULT_SERVER = 'https://helped-hills-plan-thursday.trycloudflare.com';
 
 // Human-readable label for each batch progress phase reported by the server.
 const PHASE_LABELS = {
@@ -141,6 +141,45 @@ async function apiBatchRun(server, { program, facts, workers }, onEvent) {
     }
   }
   flushLine(buffer);
+}
+
+// Deterministic row comparator: numeric per column when both cells parse as
+// numbers, otherwise locale-aware string compare. Ties fall through to the
+// next column, then to row length.
+function compareRows(a, b) {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const av = a[i] ?? '';
+    const bv = b[i] ?? '';
+    const an = Number(av);
+    const bn = Number(bv);
+    const numA = av !== '' && Number.isFinite(an);
+    const numB = bv !== '' && Number.isFinite(bn);
+    if (numA && numB) {
+      if (an !== bn) return an < bn ? -1 : 1;
+    } else {
+      const c = av.localeCompare(bv);
+      if (c !== 0) return c;
+    }
+  }
+  return a.length - b.length;
+}
+
+// Attach a per-row `status` derived from the latest commit's delta and
+// merge in just-removed rows so they can be displayed (faded) at their
+// sorted position. `delta` is `{ added: ["a,b", ...], removed: [...] }`.
+function enrichRows(rows, delta) {
+  const addedSet = new Set((delta?.added) || []);
+  const removedRaw = (delta?.removed) || [];
+  const out = rows.map(row => ({
+    row,
+    status: addedSet.has(row.join(',')) ? 'added' : 'kept',
+  }));
+  for (const s of removedRaw) {
+    out.push({ row: s.split(','), status: 'removed' });
+  }
+  out.sort((a, b) => compareRows(a.row, b.row));
+  return out;
 }
 
 function createSession(server, program, workers) {
@@ -253,7 +292,7 @@ export default function Playground() {
                   .map(line => line.split(','));
               }
             }
-            setResults({ relations, stats: evt.stats || {} });
+            setResults({ relations, stats: evt.stats || {}, deltas: {} });
             const names = Object.keys(relations);
             if (names.length > 0) {
               setActiveResult(names[0]);
@@ -323,7 +362,7 @@ export default function Playground() {
                 relations[name] = rows;
               }
             }
-            setResults({ relations, stats: msg.stats || {} });
+            setResults({ relations, stats: msg.stats || {}, deltas: msg.deltas || {} });
             const names = Object.keys(relations);
             if (names.length > 0) {
               setActiveResult(prev => (prev && names.includes(prev)) ? prev : names[0]);
@@ -427,6 +466,15 @@ export default function Playground() {
     const names = Object.keys(results.relations);
     const currentName = activeResult || names[0];
     const rows = results.relations[currentName] || [];
+    const delta = results.deltas?.[currentName] || null;
+    const enriched = enrichRows(rows, delta);
+    const colCount = enriched[0]?.row.length ?? rows[0]?.length ?? 0;
+
+    const rowClassFor = (status) => {
+      if (status === 'added') return styles.rowAdded;
+      if (status === 'removed') return styles.rowRemoved;
+      return '';
+    };
 
     return (
       <>
@@ -442,7 +490,7 @@ export default function Playground() {
           ))}
         </div>
         <div className={styles.resultsContent}>
-          {rows.length === 0 ? (
+          {enriched.length === 0 ? (
             <div className={styles.resultEmpty}>
               <div className={styles.resultEmptyText}>No tuples in {currentName}</div>
             </div>
@@ -450,15 +498,21 @@ export default function Playground() {
             <table className={styles.resultTable}>
               <thead>
                 <tr>
-                  {rows[0].map((_, ci) => (
+                  {delta && <th className={styles.statusCol} aria-label="status" />}
+                  {Array.from({ length: colCount }).map((_, ci) => (
                     <th key={ci}>col_{ci}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, ri) => (
-                  <tr key={ri}>
-                    {row.map((val, ci) => (
+                {enriched.map((entry, ri) => (
+                  <tr key={ri} className={rowClassFor(entry.status)}>
+                    {delta && (
+                      <td className={styles.statusCol}>
+                        {entry.status === 'added' ? '+' : entry.status === 'removed' ? '−' : ''}
+                      </td>
+                    )}
+                    {entry.row.map((val, ci) => (
                       <td key={ci}>{val}</td>
                     ))}
                   </tr>
@@ -694,8 +748,13 @@ export default function Playground() {
               </div>
             ) : (
               <>
-                {/* Terminal + Results split for incremental */}
+                {/* Top: cumulative results table (with per-commit delta
+                    highlights). Bottom: command terminal. */}
+                <div className={styles.resultsArea}>
+                  {renderResultsPane()}
+                </div>
                 <div className={styles.terminal}>
+                  <div className={styles.terminalHeader}>Engine output</div>
                   <div className={styles.terminalOutput} ref={terminalOutputRef}>
                     {terminalLines.length === 0 ? (
                       <div className={styles.terminalMuted}>

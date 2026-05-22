@@ -623,6 +623,60 @@
   background-color: var(--pg-badge-bg);
 }
 
+/* Narrow column reserved for the +/− delta marker in incremental mode. */
+.statusCol {
+  width: 24px;
+  text-align: center;
+  font-weight: 700;
+  user-select: none;
+  padding-left: 8px !important;
+  padding-right: 4px !important;
+}
+
+/* Added in the last commit: green tint that fades to a softer steady state. */
+.rowAdded td {
+  background-color: rgba(46, 160, 67, 0.10);
+  border-left: 0;
+  animation: rowAddedFade 1.2s ease-out;
+}
+.rowAdded td:first-child {
+  color: var(--pg-success);
+  box-shadow: inset 3px 0 0 var(--pg-success);
+}
+
+/* Removed in the last commit: red tint, strikethrough, faded — still shown
+   at its sorted position so the user can see what just disappeared. */
+.rowRemoved td {
+  background-color: rgba(218, 54, 51, 0.08);
+  color: var(--pg-error);
+  text-decoration: line-through;
+  opacity: 0.75;
+  animation: rowRemovedFade 1.2s ease-out;
+}
+.rowRemoved td:first-child {
+  color: var(--pg-error);
+  text-decoration: none;
+  box-shadow: inset 3px 0 0 var(--pg-error);
+  opacity: 1;
+}
+
+.resultTable .rowAdded:hover td {
+  background-color: rgba(46, 160, 67, 0.18);
+}
+.resultTable .rowRemoved:hover td {
+  background-color: rgba(218, 54, 51, 0.14);
+}
+
+@keyframes rowAddedFade {
+  from { background-color: rgba(46, 160, 67, 0.35); }
+  to   { background-color: rgba(46, 160, 67, 0.10); }
+}
+
+@keyframes rowRemovedFade {
+  from { background-color: rgba(218, 54, 51, 0.28); }
+  to   { background-color: rgba(218, 54, 51, 0.08); }
+}
+
 .resultEmpty {
   flex: 1;
   display: flex;
@@ -650,12 +704,28 @@
 
 /* ─── Incremental terminal ─── */
 
+/* In incremental mode the right panel stacks the results table on top of
+   the terminal. The table gets the larger share; the terminal is treated
+   as a secondary detail view. */
 .terminal {
-  flex: 1;
+  flex: 0 1 38%;
   display: flex;
   flex-direction: column;
   background: var(--pg-terminal-bg);
-  min-height: 0;
+  min-height: 140px;
+  border-top: 1px solid var(--pg-card-border);
+}
+
+.terminalHeader {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pg-muted);
+  padding: 6px 14px;
+  background: var(--pg-toolbar-bg);
+  border-bottom: 1px solid var(--pg-toolbar-border);
+  flex-shrink: 0;
 }
 
 .terminalOutput {
