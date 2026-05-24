@@ -1,28 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap');
 
 :global(:root) {
+  --flowlog-brand-font: 'Ubuntu', 'Cambay', sans-serif;
   --flowlog-bg: #fff;
-  --flowlog-text: #333;
-  --flowlog-muted: #555;
+  --flowlog-text: #2a2f36;
+  --flowlog-muted: #555f6c;
   --flowlog-link: #1e6ba3;
   --flowlog-link-hover: #155380;
   --flowlog-accent-blue: #0087B9;
   --flowlog-accent-brown: #5F2D12;
-  --flowlog-highlight-bg: #f5f5f5;
+  --flowlog-highlight-bg: #f3f8fb;
   --flowlog-highlight-border: #1e6ba3;
-  --flowlog-card-bg: #fafafa;
-  --flowlog-card-border: #e6e6e6;
+  --flowlog-card-bg: #ffffff;
+  --flowlog-card-border: #e6ecf1;
+  --flowlog-card-shadow: 0 2px 10px rgba(15, 60, 100, 0.04);
+  --flowlog-card-shadow-hover: 0 18px 40px rgba(15, 60, 100, 0.10);
   --flowlog-repo-bg: #e8f4f8;
   --flowlog-repo-border: #b8d4e6;
   --flowlog-repo-hover-bg: #d0e7f5;
   --flowlog-repo-hover-border: #7fb3d5;
   --flowlog-surface-muted: #f0f4f7;
-  --flowlog-hero-gradient: linear-gradient(135deg, #ffffff 0%, #f5fafc 40%, #fff7f0 100%);
-  --flowlog-button-primary-bg: #37bffe;
-  --flowlog-button-primary-text: #000000;
-  --flowlog-button-primary-shadow: rgba(14, 165, 233, 0.3);
-  --flowlog-button-secondary-border: rgba(30, 107, 163, 0.4);
+  --flowlog-hero-gradient:
+    radial-gradient(circle at 12% 18%, rgba(55, 191, 254, 0.18), transparent 55%),
+    radial-gradient(circle at 88% 8%, rgba(255, 175, 120, 0.16), transparent 55%),
+    radial-gradient(circle at 50% 110%, rgba(141, 207, 255, 0.12), transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, #f7fbfd 60%, #fff8f1 100%);
+  --flowlog-divider: linear-gradient(90deg, transparent, rgba(0, 135, 185, 0.18), transparent);
+  --flowlog-button-primary-bg: linear-gradient(135deg, #37bffe 0%, #0891b2 100%);
+  --flowlog-button-primary-text: #ffffff;
+  --flowlog-button-primary-shadow: 0 10px 24px rgba(14, 165, 233, 0.28);
+  --flowlog-button-secondary-border: rgba(30, 107, 163, 0.35);
   --flowlog-button-secondary-text: #1e6ba3;
+  --flowlog-button-secondary-bg: rgba(255, 255, 255, 0.7);
 }
 
 :global([data-theme='dark']) {
@@ -35,30 +44,39 @@
   --flowlog-accent-brown: #D2824B;
   --flowlog-highlight-bg: #1c222c;
   --flowlog-highlight-border: #8dcfff;
-  --flowlog-card-bg: #1b222d;
-  --flowlog-card-border: #2a3240;
+  --flowlog-card-bg: #161c25;
+  --flowlog-card-border: #243042;
+  --flowlog-card-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  --flowlog-card-shadow-hover: 0 18px 40px rgba(0, 0, 0, 0.45);
   --flowlog-repo-bg: #1c2a3a;
   --flowlog-repo-border: #31506e;
   --flowlog-repo-hover-bg: #25364b;
   --flowlog-repo-hover-border: #4c6f94;
   --flowlog-surface-muted: #141a24;
-  --flowlog-hero-gradient: radial-gradient(circle at 20% 20%, #172131, #0d1117 70%);
-  --flowlog-button-primary-bg: #0891b2;
-  --flowlog-button-primary-text: #000000;
-  --flowlog-button-primary-shadow: rgba(8, 145, 178, 0.35);
+  --flowlog-hero-gradient:
+    radial-gradient(circle at 15% 20%, rgba(70, 190, 230, 0.22), transparent 55%),
+    radial-gradient(circle at 85% 10%, rgba(210, 130, 75, 0.18), transparent 55%),
+    radial-gradient(circle at 50% 110%, rgba(141, 207, 255, 0.10), transparent 60%),
+    linear-gradient(180deg, #0d1117 0%, #0f1620 100%);
+  --flowlog-divider: linear-gradient(90deg, transparent, rgba(141, 207, 255, 0.25), transparent);
+  --flowlog-button-primary-bg: linear-gradient(135deg, #46BEE6 0%, #0891b2 100%);
+  --flowlog-button-primary-text: #04121b;
+  --flowlog-button-primary-shadow: 0 10px 24px rgba(8, 145, 178, 0.40);
   --flowlog-button-secondary-border: rgba(141, 207, 255, 0.4);
   --flowlog-button-secondary-text: #b6e3ff;
+  --flowlog-button-secondary-bg: rgba(255, 255, 255, 0.04);
 }
 
 .flowlogPage {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 18px;
-  line-height: 1.5;
+  line-height: 1.6;
   color: var(--flowlog-text);
   background-color: var(--flowlog-bg);
   background-image: var(--flowlog-hero-gradient);
+  background-attachment: fixed;
   display: flow-root;
-  padding-bottom: 60px;
+  padding-bottom: 80px;
 }
 
 .flowlogPage a {
@@ -73,16 +91,22 @@
 .hero {
   display: flex;
   align-items: center;
-  gap: 40px;
-  max-width: 900px;
-  margin: 60px auto 40px;
-  padding: 0 20px;
+  gap: 56px;
+  max-width: 960px;
+  margin: 80px auto 56px;
+  padding: 0 24px;
 }
 
 .heroImage {
-  max-width: 200px;
+  max-width: 220px;
   height: auto;
   flex-shrink: 0;
+  filter: drop-shadow(0 10px 24px rgba(15, 60, 100, 0.12));
+  transition: transform 0.4s ease;
+}
+
+.heroImage:hover {
+  transform: translateY(-4px) rotate(-1deg);
 }
 
 .heroText {
@@ -90,23 +114,29 @@
 }
 
 .heroText h1 {
-  font-size: 36px;
-  margin: 0 0 15px 0;
+  font-size: 64px;
+  margin: 0 0 18px 0;
   font-weight: 700;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--flowlog-brand-font);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
 }
 
 .heroText p {
   font-size: 18px;
   margin: 0;
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--flowlog-muted);
+  font-family: var(--flowlog-brand-font);
+  font-weight: 400;
+  max-width: 56ch;
 }
 
 .heroSubhead {
   margin-top: 15px;
   font-size: 16px;
   color: var(--flowlog-muted);
+  font-family: var(--flowlog-brand-font);
 }
 
 .heroAccentBlue {
@@ -118,16 +148,16 @@
 }
 
 .contentWrapper {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 24px;
 }
 
 .heroActions {
-  margin-top: 24px;
+  margin-top: 28px;
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 14px;
 }
 
 .primaryButton,
@@ -135,38 +165,51 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 20px;
+  padding: 11px 22px;
   border-radius: 999px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
+  font-family: var(--flowlog-brand-font);
   text-decoration: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease,
-    background-color 0.2s ease, border-color 0.2s ease;
+  letter-spacing: 0.01em;
+  transition: transform 0.2s ease, box-shadow 0.25s ease,
+    background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .primaryButton {
   background: var(--flowlog-button-primary-bg);
   color: var(--flowlog-button-primary-text);
   border: none;
-  box-shadow: 0 16px 30px var(--flowlog-button-primary-shadow);
+  box-shadow: var(--flowlog-button-primary-shadow);
 }
 
 .secondaryButton {
   border: 1px solid var(--flowlog-button-secondary-border);
   color: var(--flowlog-button-secondary-text);
-  background-color: transparent;
+  background-color: var(--flowlog-button-secondary-bg);
+  backdrop-filter: blur(6px);
 }
 
 .primaryButton:hover,
 .secondaryButton:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12);
+  text-decoration: none;
+}
+
+.primaryButton:hover {
+  color: var(--flowlog-button-primary-text);
+}
+
+.secondaryButton:hover {
+  color: var(--flowlog-button-secondary-text);
+  border-color: var(--flowlog-link);
 }
 
 .githubIcon {
   width: 18px;
   height: 18px;
-  margin-right: 6px;
+  margin-right: 8px;
   flex-shrink: 0;
 }
 
@@ -205,24 +248,39 @@
 .highlightBox {
   background-color: var(--flowlog-highlight-bg);
   border-left: 4px solid var(--flowlog-highlight-border);
-  padding: 15px 20px;
-  margin-bottom: 30px;
+  border-radius: 0 12px 12px 0;
+  padding: 16px 22px;
+  margin-bottom: 48px;
+  font-family: var(--flowlog-brand-font);
+  box-shadow: var(--flowlog-card-shadow);
 }
 
 .contentWrapper h2 {
   color: var(--flowlog-accent-brown);
-  padding-bottom: 10px;
-  margin-top: 40px;
-  margin-bottom: 20px;
-  font-size: 32px;
+  padding-bottom: 8px;
+  margin-top: 64px;
+  margin-bottom: 28px;
+  font-size: 30px;
   font-weight: 700;
   text-align: center;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--flowlog-brand-font);
+  letter-spacing: -0.01em;
+  position: relative;
+}
+
+.contentWrapper h2::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 3px;
+  margin: 14px auto 0;
+  border-radius: 999px;
+  background: var(--flowlog-divider);
 }
 
 .featuresGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 20px;
   margin-bottom: 30px;
 }
@@ -230,28 +288,49 @@
 .featureBox {
   background-color: var(--flowlog-card-bg);
   border: 1px solid var(--flowlog-card-border);
-  border-radius: 8px;
-  padding: 25px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 14px;
+  padding: 26px 24px;
+  box-shadow: var(--flowlog-card-shadow);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.featureBox::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--flowlog-accent-blue), var(--flowlog-accent-brown));
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 .featureBox:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+  box-shadow: var(--flowlog-card-shadow-hover);
+  border-color: rgba(0, 135, 185, 0.25);
+}
+
+.featureBox:hover::before {
+  opacity: 1;
 }
 
 .featureBox h3 {
   color: var(--flowlog-accent-blue);
   margin: 0 0 10px 0;
-  font-size: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  font-family: var(--flowlog-brand-font);
+  letter-spacing: -0.005em;
 }
 
 .featureBox p {
   margin: 0;
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: 15.5px;
+  line-height: 1.65;
   color: var(--flowlog-muted);
+  font-family: var(--flowlog-brand-font);
 }
 
 .publicationsGrid {
@@ -264,60 +343,85 @@
 .publicationCard {
   background-color: var(--flowlog-card-bg);
   border: 1px solid var(--flowlog-card-border);
-  border-radius: 8px;
-  padding: 25px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: var(--flowlog-card-shadow);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .publicationCard:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+  box-shadow: var(--flowlog-card-shadow-hover);
+  border-color: rgba(0, 135, 185, 0.25);
 }
 
 .publicationCard h3 {
   color: var(--flowlog-accent-blue);
   margin: 0 0 10px 0;
-  font-size: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--flowlog-brand-font);
+  line-height: 1.35;
+}
+
+.publicationCard h3 a {
+  text-decoration: none;
+}
+
+.publicationCard h3 a:hover {
+  text-decoration: underline;
 }
 
 .publicationAuthors {
   margin: 0 0 6px 0;
-  font-size: 15px;
+  font-size: 14.5px;
   color: var(--flowlog-muted);
+  font-family: var(--flowlog-brand-font);
 }
 
 .publicationVenue {
   margin: 0;
   font-weight: 600;
+  font-size: 14px;
   color: var(--flowlog-accent-brown);
+  font-family: var(--flowlog-brand-font);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .ctaPanel {
   border: 1px solid var(--flowlog-card-border);
-  border-radius: 16px;
-  padding: 30px;
-  background: linear-gradient(120deg, rgba(30, 107, 163, 0.08), transparent);
-  margin-bottom: 40px;
+  border-radius: 20px;
+  padding: 40px 32px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(55, 191, 254, 0.10), transparent 50%),
+    radial-gradient(circle at 100% 100%, rgba(255, 175, 120, 0.10), transparent 50%),
+    var(--flowlog-card-bg);
+  box-shadow: var(--flowlog-card-shadow);
+  margin-bottom: 56px;
   text-align: center;
 }
 
 .ctaPanel h3 {
-  margin: 0 0 10px 0;
+  margin: 0 0 12px 0;
   font-size: 24px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 700;
+  font-family: var(--flowlog-brand-font);
+  color: var(--flowlog-text);
 }
 
 .ctaPanel p {
-  margin: 0 auto 20px;
+  margin: 0 auto 24px;
   max-width: 600px;
   color: var(--flowlog-muted);
+  font-family: var(--flowlog-brand-font);
+  line-height: 1.7;
 }
 
 .ctaActions {
   display: flex;
   justify-content: center;
-  gap: 16px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
@@ -325,17 +429,21 @@
   text-align: center;
   max-width: 700px;
   margin: 0 auto 60px;
+  font-family: var(--flowlog-brand-font);
+  color: var(--flowlog-muted);
+  line-height: 1.7;
 }
 
 .repoHighlight {
   background-color: var(--flowlog-repo-bg);
   color: var(--flowlog-link);
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: 6px;
   text-decoration: none;
   font-size: 0.9em;
+  font-weight: 600;
   border: 1px solid var(--flowlog-repo-border);
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
   display: inline-block;
 }
 
@@ -349,12 +457,15 @@
   border-color: var(--flowlog-repo-hover-border);
   color: var(--flowlog-link-hover);
   text-decoration: none;
+  transform: translateY(-1px);
 }
 
 @media screen and (max-width: 768px) {
   .hero {
     flex-direction: column;
     text-align: center;
+    gap: 32px;
+    margin-top: 48px;
   }
 
   .heroImage {
@@ -362,11 +473,25 @@
   }
 
   .heroText h1 {
-    font-size: 32px;
+    font-size: 44px;
+  }
+
+  .heroText p {
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .heroActions {
     justify-content: center;
+  }
+
+  .publicationsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .contentWrapper h2 {
+    font-size: 26px;
+    margin-top: 48px;
   }
 
   .heroStats {
