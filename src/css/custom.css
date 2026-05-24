@@ -4,16 +4,21 @@
  * work well for content-centric websites.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --ifm-heading-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Variable', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --ifm-font-family-monospace: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  --ifm-h1-font-size: 1.5rem;
-  --ifm-h2-font-size: 1.2rem;
-  --ifm-h3-font-size: 1.1rem;
+  --flowlog-brand-font: 'Ubuntu', 'Cambay', sans-serif;
+  --ifm-font-family-base: 'Ubuntu', 'Cambay', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --ifm-heading-font-family: 'Ubuntu', 'Cambay', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --ifm-font-family-monospace: 'Ubuntu Mono', 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --ifm-font-size-base: 16px;
+  --ifm-line-height-base: 1.7;
+  --ifm-h1-font-size: 2rem;
+  --ifm-h2-font-size: 1.45rem;
+  --ifm-h3-font-size: 1.18rem;
+  --ifm-heading-font-weight: 700;
+  --ifm-heading-line-height: 1.3;
   --ifm-color-primary: #1e6ba3;
   --ifm-color-primary-dark: #1a5f91;
   --ifm-color-primary-darker: #185a89;
@@ -21,11 +26,22 @@
   --ifm-color-primary-light: #2277b5;
   --ifm-color-primary-lighter: #247dbd;
   --ifm-color-primary-lightest: #3a8fc9;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-code-font-size: 92%;
+  --ifm-code-border-radius: 6px;
+  --ifm-code-padding-vertical: 0.15rem;
+  --ifm-code-padding-horizontal: 0.4rem;
+  --ifm-pre-background: #f7fafd;
+  --ifm-pre-border-radius: 10px;
+  --ifm-pre-padding: 18px 20px;
+  --ifm-blockquote-color: #4a5560;
+  --ifm-blockquote-border-color: var(--ifm-color-primary);
+  --ifm-toc-border-color: #e6ecf1;
+  --ifm-table-border-color: #e6ecf1;
+  --ifm-table-stripe-background: #f7fafd;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 135, 185, 0.10);
   --flowlog-accent-blue: #0087B9;
   --flowlog-accent-brown: #5F2D12;
-  --flowlog-highlight-bg: #f5f5f5;
+  --flowlog-highlight-bg: #f3f8fb;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -37,11 +53,33 @@
   --ifm-color-primary-light: #acddff;
   --ifm-color-primary-lighter: #bce5ff;
   --ifm-color-primary-lightest: #ebf5ff;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-pre-background: #161c25;
+  --ifm-blockquote-color: #a0b3c2;
+  --ifm-toc-border-color: #243042;
+  --ifm-table-border-color: #243042;
+  --ifm-table-stripe-background: #141a23;
+  --docusaurus-highlighted-code-line-bg: rgba(141, 207, 255, 0.18);
   --flowlog-accent-blue: #46BEE6;
   --flowlog-accent-brown: #D2824B;
-  --flowlog-highlight-bg: #2a2a2a;
+  --flowlog-highlight-bg: #1c222c;
 }
+
+/* ─── Navbar polish ─── */
+
+.navbar {
+  box-shadow: 0 1px 0 rgba(15, 60, 100, 0.06);
+}
+
+[data-theme='dark'] .navbar {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.navbar__items .navbar__link {
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+/* ─── Footer ─── */
 
 .footer__brand {
   max-width: 22rem;
@@ -71,13 +109,15 @@
 
 .navbar__title::before {
   content: 'Flow';
-  font-size: 1.05rem;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
   color: var(--flowlog-accent-blue);
 }
 
 .navbar__title::after {
   content: 'Log';
-  font-size: 1.05rem;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
   color: var(--flowlog-accent-brown);
 }
 
@@ -90,13 +130,15 @@
 
 .footer--dark .footer__col:first-child .footer__title::before {
   content: 'Flow';
-  font-size: 1.1rem;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
   color: #46BEE6;
 }
 
 .footer--dark .footer__col:first-child .footer__title::after {
   content: 'Log';
-  font-size: 1.1rem;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
   color: #D2824B;
 }
 
@@ -125,16 +167,246 @@
   font-style: normal !important;
 }
 
-/* Tighten doc-page heading sizes relative to body text */
+/* ─── Doc-page typography ─── */
+
+.markdown {
+  font-family: var(--flowlog-brand-font);
+}
+
+.markdown > h1:first-child {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.015em;
+  position: relative;
+  padding-bottom: 0.5rem;
+}
+
+.markdown > h1:first-child::after {
+  content: '';
+  display: block;
+  width: 56px;
+  height: 3px;
+  margin-top: 0.6rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--flowlog-accent-blue), var(--flowlog-accent-brown));
+}
+
 .markdown h1,
 .docMainWrapper h1 {
-  font-size: 1.5rem;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
 .markdown h2 {
-  font-size: 1.2rem;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-top: 2.25rem;
+  padding-top: 0.25rem;
 }
 
 .markdown h3 {
-  font-size: 1.1rem;
+  font-size: 1.18rem;
+  font-weight: 700;
+  margin-top: 1.75rem;
+}
+
+.markdown p,
+.markdown li {
+  line-height: 1.75;
+}
+
+.markdown a {
+  font-weight: 500;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.markdown a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.markdown ul li,
+.markdown ol li {
+  margin-bottom: 0.35rem;
+}
+
+.markdown blockquote {
+  border-left-width: 3px;
+  border-radius: 0 10px 10px 0;
+  background: var(--flowlog-highlight-bg);
+  padding: 14px 18px;
+  font-style: normal;
+}
+
+.markdown table {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(15, 60, 100, 0.04);
+}
+
+.markdown table thead {
+  background: var(--flowlog-highlight-bg);
+}
+
+.markdown table th {
+  font-family: var(--flowlog-brand-font);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--flowlog-accent-blue);
+}
+
+/* ─── Inline code ─── */
+
+.markdown code:not([class*='language-']) {
+  background-color: rgba(0, 135, 185, 0.08);
+  color: var(--flowlog-accent-brown);
+  border: 1px solid rgba(0, 135, 185, 0.12);
+  font-weight: 500;
+  font-size: 0.88em;
+}
+
+[data-theme='dark'] .markdown code:not([class*='language-']) {
+  background-color: rgba(141, 207, 255, 0.10);
+  color: var(--flowlog-accent-brown);
+  border-color: rgba(141, 207, 255, 0.18);
+}
+
+/* ─── Code blocks ─── */
+
+.theme-code-block {
+  box-shadow: 0 4px 14px rgba(15, 60, 100, 0.06);
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+}
+
+[data-theme='dark'] .theme-code-block {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* ─── Breadcrumbs ─── */
+
+.breadcrumbs__item--active .breadcrumbs__link {
+  background: var(--flowlog-highlight-bg);
+  color: var(--flowlog-accent-blue);
+  font-weight: 600;
+}
+
+.breadcrumbs__link {
+  font-family: var(--flowlog-brand-font);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+/* ─── Sidebar ─── */
+
+.menu {
+  font-family: var(--flowlog-brand-font);
+  font-weight: 500;
+  padding: 1rem 0.75rem;
+}
+
+.menu__link {
+  border-radius: 8px;
+  font-size: 0.92rem;
+  padding: 0.45rem 0.75rem;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.menu__link:hover {
+  background-color: rgba(0, 135, 185, 0.06);
+  color: var(--flowlog-accent-blue);
+}
+
+.menu__link--active {
+  font-weight: 600;
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  background-color: rgba(0, 135, 185, 0.10);
+  color: var(--flowlog-accent-blue);
+  box-shadow: inset 2px 0 0 var(--flowlog-accent-blue);
+}
+
+[data-theme='dark'] .menu__link:hover {
+  background-color: rgba(141, 207, 255, 0.08);
+}
+
+[data-theme='dark'] .menu__link--active:not(.menu__link--sublist) {
+  background-color: rgba(141, 207, 255, 0.12);
+  box-shadow: inset 2px 0 0 var(--ifm-color-primary);
+}
+
+.menu__list-item-collapsible:hover {
+  background-color: rgba(0, 135, 185, 0.06);
+}
+
+[data-theme='dark'] .menu__list-item-collapsible:hover {
+  background-color: rgba(141, 207, 255, 0.08);
+}
+
+/* ─── Table of contents ─── */
+
+.table-of-contents {
+  font-family: var(--flowlog-brand-font);
+  font-size: 0.85rem;
+  border-left-width: 1px;
+}
+
+.table-of-contents__link {
+  transition: color 0.15s;
+}
+
+.table-of-contents__link:hover,
+.table-of-contents__link--active {
+  color: var(--flowlog-accent-blue);
+  font-weight: 600;
+}
+
+/* ─── Pagination cards (Previous / Next) ─── */
+
+.pagination-nav__link {
+  border-radius: 12px;
+  border-color: var(--ifm-toc-border-color);
+  background: var(--ifm-background-surface-color);
+  padding: 1rem 1.25rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.pagination-nav__link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(15, 60, 100, 0.08);
+  border-color: var(--flowlog-accent-blue);
+}
+
+[data-theme='dark'] .pagination-nav__link:hover {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.pagination-nav__sublabel {
+  font-family: var(--flowlog-brand-font);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ifm-color-emphasis-600);
+}
+
+.pagination-nav__label {
+  font-family: var(--flowlog-brand-font);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+/* Tighten doc-page heading sizes relative to body text (used by older pages). */
+.docMainWrapper h2 {
+  font-size: 1.45rem;
+}
+
+.docMainWrapper h3 {
+  font-size: 1.18rem;
 }
