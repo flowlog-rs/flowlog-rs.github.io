@@ -143,7 +143,7 @@ MemoryAlias(x, x) :- Assign(x, y).`,
   },
 ];
 
-const DEFAULT_SERVER = 'https://helped-hills-plan-thursday.trycloudflare.com';
+const DEFAULT_SERVER = 'https://pubs-medicaid-avenue-where.trycloudflare.com';
 
 // Resolve the backend base URL:
 //   1. `?server=<url>` query param wins (explicit override), else
