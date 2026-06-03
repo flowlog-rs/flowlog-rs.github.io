@@ -5,13 +5,22 @@ Backend for the interactive playground at
 
 It wraps the [`flowlog-compiler`](https://github.com/flowlog-rs/flowlog) CLI:
 each request compiles the submitted Datalog program to a native executable,
-runs it, and streams progress + results back to the browser.
+runs it, and streams progress + results back to the browser. With profiling
+enabled it additionally invokes the
+[`flowlog-profile-viz`](https://github.com/flowlog-rs/profile-visualizer) CLI
+to turn the run's profiling logs into a self-contained HTML report.
 
 * `POST /api/run` — **batch** mode. Streams newline-delimited JSON progress
-  (`compiling → compiled → running → done`) then a final `result`.
+  (`compiling → compiled → running → done`) then a final `result`. When the
+  request sets `options.profile = true`, the program is compiled with `-P` and,
+  after the result, the server streams a `profiling` status and a final
+  `report` line carrying a self-contained HTML report (best-effort: a failure
+  becomes a non-fatal `report_error` line). See [Profiling](#profiling).
 * `GET /api/session` (WebSocket) — **incremental** mode. Bridges the generated
   interactive shell (`begin` / `put` / `file` / `commit` / `abort`) to the
-  browser and emits a result snapshot after every commit.
+  browser and emits a result snapshot after every commit. With `?profile=true`,
+  a `{"type":"profile"}` message renders a report spanning every commit so far
+  (see [Profiling](#profiling)).
 * `GET /health` — returns `ok`.
 
 ## How it works
@@ -30,6 +39,34 @@ batch, the `init` WebSocket message for incremental. Default examples and
 custom programs use the exact same path; nothing extra is needed to support
 user-supplied data. The server keeps no per-user state between requests.
 
+## Profiling
+
+When a batch request sets `options.profile = true`:
+
+1. The program is compiled **with `-P`** (cached separately from the plain
+   build). The resulting binary, in addition to its normal `out/` relations,
+   writes a `program_log/` tree into its run-time cwd:
+   `ops.json` (static plan graph) plus per-worker `time/` and `memory/` logs.
+2. After streaming the `result`, the server runs `flowlog-profile-viz` over
+   that tree (`-p ops.json -t time -m memory -o report.html`) to render a
+   **single self-contained HTML report** (data embedded; no external assets
+   beyond optional web fonts).
+3. The report is streamed to the browser as a trailing
+   `{"type":"report","html":"…"}` line, which the playground opens in an
+   embedded viewer (and can pop out to a new tab).
+
+Report generation is **best-effort**: the run has already succeeded by then, so
+any failure (visualizer missing, render error, oversized report) is reported as
+a non-fatal `{"type":"report_error","text":"…"}` line and the results still
+stand.
+
+**Incremental** sessions profile too: open the socket with `?profile=true` (the
+binary is compiled with `-P`, and each commit writes a per-timestamp snapshot
+under `program_log/`), then send `{"type":"profile"}` whenever you want a
+report. The visualizer groups the per-worker logs by their `_tN_` timestamp, so
+one report spans **every commit so far**, with a snapshot selector — the same
+`report` / `report_error` messages carry the result.
+
 ## Build
 
 You need the `flowlog-compiler` binary. Build it from the FlowLog repo:
@@ -38,6 +75,16 @@ You need the `flowlog-compiler` binary. Build it from the FlowLog repo:
 git clone https://github.com/flowlog-rs/flowlog
 cd flowlog
 cargo build --release        # produces target/release/flowlog-compiler
+```
+
+For profiling support, also build the `flowlog-profile-viz` binary from the
+profile-visualizer repo (optional — without it, profiled runs still return
+results and report a non-fatal profiling error):
+
+```bash
+git clone https://github.com/flowlog-rs/profile-visualizer
+cd profile-visualizer
+cargo build --release        # produces target/release/flowlog-profile-viz
 ```
 
 Then build this server:
@@ -60,14 +107,17 @@ FLOWLOG_COMPILER=/path/to/flowlog/target/release/flowlog-compiler \
 |---|---|---|
 | `BIND_ADDR` | `0.0.0.0:8080` | Address to listen on. |
 | `FLOWLOG_COMPILER` | `flowlog-compiler` | Path to the compiler binary (PATH lookup if bare). |
+| `FLOWLOG_PROFILE_VIZ` | `flowlog-profile-viz` | Path to the profile-visualizer binary (PATH lookup if bare). |
 | `WORK_DIR` | `<tmp>/flowlog-playground` | Compile cache + per-request scratch dirs. |
 | `ALLOWED_ORIGINS` | `https://flowlog-rs.github.io,http://localhost:3000` | Comma-separated CORS origins. `*` allows any. |
 | `COMPILE_TIMEOUT_SECS` | `300` | Max time for one compilation. |
 | `RUN_TIMEOUT_SECS` | `30` | Max time for one batch run. |
+| `PROFILE_TIMEOUT_SECS` | `60` | Max time for one profile-report render. |
 | `SESSION_TIMEOUT_SECS` | `900` | Max lifetime of an incremental session. |
 | `MAX_WORKERS` | `8` | Upper bound on the client-requested `-w` count. |
 | `MAX_PROGRAM_BYTES` | `256000` | Reject larger programs. |
 | `MAX_TOTAL_FACT_BYTES` | `1048576` | Reject input facts larger than 1 MiB in total. |
+| `MAX_REPORT_BYTES` | `25165824` | Drop (don't stream) profile reports larger than this. |
 | `ENABLE_CACHE` | `true` | Reuse cached compiled binaries. |
 | `RUST_LOG` | `info` | Log filter. |
 

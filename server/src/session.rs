@@ -2,13 +2,20 @@
 //!
 //! Protocol (dictated by the playground client):
 //!
-//! * Client opens the socket, then sends `{"type":"init","program":...,"facts":...}`.
+//! * Client opens the socket (optionally with `?profile=true`), then sends
+//!   `{"type":"init","program":...,"facts":...}`.
 //! * Client sends `{"type":"command","command":"begin"}` etc.
 //! * Server replies with `{"type":"output|info|error","text":...}` lines and,
 //!   after each commit, `{"type":"result","results":...,"stats":...}`.
 //!
 //! The server compiles the program in incremental mode, spawns the generated
 //! interactive shell, and bridges its stdin/stdout to the WebSocket.
+//!
+//! When started with `profile=true`, the binary is compiled with `-P` and each
+//! commit writes a per-timestamp snapshot under `program_log/`. The client can
+//! then send `{"type":"profile"}` to have the server render the snapshots so
+//! far into a self-contained report, returned as `{"type":"report","html":...}`
+//! (best-effort: failures come back as `{"type":"report_error","text":...}`).
 
 use std::collections::HashMap;
 use std::process::Stdio;
@@ -33,6 +40,10 @@ use crate::flowlog::{self, Mode};
 #[derive(Deserialize)]
 pub struct SessionParams {
     workers: Option<u32>,
+    /// When true, compile the session binary with `-P` so each commit writes a
+    /// per-timestamp profiling snapshot under `program_log/`.
+    #[serde(default)]
+    profile: bool,
 }
 
 #[derive(Deserialize)]
@@ -46,6 +57,9 @@ enum ClientMsg {
     Command {
         command: String,
     },
+    /// Render a profile report from the snapshots accumulated so far. Only
+    /// meaningful when the session was started with `profile=true`.
+    Profile,
 }
 
 pub async fn session_handler(
@@ -59,6 +73,12 @@ pub async fn session_handler(
 /// Build a `{"type":kind,"text":text}` text frame.
 fn text_msg(kind: &str, text: &str) -> Message {
     Message::Text(json!({ "type": kind, "text": text }).to_string().into())
+}
+
+/// Build a `{"type":"report","html":...}` frame carrying a self-contained
+/// profile report.
+fn report_msg(html: &str) -> Message {
+    Message::Text(json!({ "type": "report", "html": html }).to_string().into())
 }
 
 async fn handle_session(socket: WebSocket, cfg: Arc<Config>, params: SessionParams) {
@@ -89,11 +109,12 @@ async fn run_session(
     out: &mpsc::Sender<Message>,
 ) -> Result<(), String> {
     let workers = params.workers.unwrap_or(4).clamp(1, cfg.max_workers);
+    let profile = params.profile;
 
     // 1. Wait for the init message carrying the program + facts.
     let (program, facts) = match recv_init(ws_rx).await? {
         ClientMsg::Init { program, facts } => (program, facts),
-        ClientMsg::Command { .. } => return Err("expected an init message".into()),
+        _ => return Err("expected an init message".into()),
     };
     if program.len() > cfg.max_program_bytes {
         return Err(format!(
@@ -112,7 +133,7 @@ async fn run_session(
 
     // 2. Compile the program in incremental mode.
     let _ = out.send(text_msg("info", "Compiling program...")).await;
-    let bin = flowlog::compile(cfg, &program, Mode::Incremental)
+    let bin = flowlog::compile(cfg, &program, Mode::Incremental, profile)
         .await
         .map_err(|e| e.to_string())?;
     let _ = out
@@ -200,17 +221,25 @@ async fn run_session(
             incoming = ws_rx.next() => {
                 match incoming {
                     Some(Ok(Message::Text(t))) => {
-                        if let Ok(ClientMsg::Command { command }) =
-                            serde_json::from_str::<ClientMsg>(t.as_str())
-                        {
-                            if stdin
-                                .write_all(format!("{command}\n").as_bytes())
-                                .await
-                                .is_err()
-                            {
-                                break;
+                        match serde_json::from_str::<ClientMsg>(t.as_str()) {
+                            Ok(ClientMsg::Command { command }) => {
+                                if stdin
+                                    .write_all(format!("{command}\n").as_bytes())
+                                    .await
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                                let _ = stdin.flush().await;
                             }
-                            let _ = stdin.flush().await;
+                            // Render a report from the snapshots written so far.
+                            // Briefly blocks command handling while the
+                            // visualizer runs; engine output keeps flowing via
+                            // the separate stdout pump.
+                            Ok(ClientMsg::Profile) => {
+                                generate_session_report(cfg, work.path(), profile, out).await;
+                            }
+                            _ => {}
                         }
                     }
                     Some(Ok(Message::Close(_))) | None => break,
@@ -232,6 +261,37 @@ async fn run_session(
     stdout_reader.abort();
     accumulator_task.abort();
     Ok(())
+}
+
+/// Render a profile report from the per-timestamp snapshots accumulated in
+/// `work/program_log/` and send it to the client. The visualizer groups the
+/// per-worker logs by their `_tN_` timestamp, so the report spans every commit
+/// made so far. Best-effort: any failure comes back as a `report_error`.
+async fn generate_session_report(
+    cfg: &Config,
+    work: &std::path::Path,
+    profiling_on: bool,
+    out: &mpsc::Sender<Message>,
+) {
+    if !profiling_on {
+        let _ = out
+            .send(text_msg(
+                "report_error",
+                "This session was not started with profiling enabled.",
+            ))
+            .await;
+        return;
+    }
+
+    let _ = out
+        .send(text_msg("info", "Generating profile report..."))
+        .await;
+
+    let msg = match flowlog::render_report(cfg, work).await {
+        Ok(html) => report_msg(&html),
+        Err(e) => text_msg("report_error", &e.to_string()),
+    };
+    let _ = out.send(msg).await;
 }
 
 /// Read frames until a valid JSON message arrives; bounded by a short timeout.

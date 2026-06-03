@@ -6,6 +6,7 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
@@ -42,15 +43,24 @@ pub enum FlowlogError {
     Run(String),
     #[error("Execution timed out after {0:?}.")]
     RunTimeout(Duration),
+    #[error("Profile report generation failed:\n\n{0}")]
+    Profile(String),
+    #[error("Profile report generation timed out after {0:?}.")]
+    ProfileTimeout(Duration),
+    #[error("Profile report is too large ({len} bytes; limit {limit}).")]
+    ReportTooLarge { len: usize, limit: usize },
     #[error("server error: {0}")]
     Io(#[from] std::io::Error),
 }
 
-/// Stable cache key for a (program, mode) pair.
-fn cache_key(program: &str, mode: Mode) -> String {
+/// Stable cache key for a (program, mode, profile) triple. A profiling build
+/// carries extra instrumentation, so it must not share a cache slot with the
+/// plain build of the same program.
+fn cache_key(program: &str, mode: Mode, profile: bool) -> String {
     let mut h = Sha256::new();
     h.update(program.as_bytes());
     h.update([mode as u8]);
+    h.update([profile as u8]);
     hex::encode(&h.finalize()[..16])
 }
 
@@ -59,12 +69,17 @@ fn cache_key(program: &str, mode: Mode) -> String {
 /// Batch binaries read inputs from `facts/` and write outputs to `out/`,
 /// both resolved relative to the executable's working directory at run time.
 /// Incremental binaries take input from their interactive shell (`-D -`).
+///
+/// When `profile` is set, the compiler embeds profiling instrumentation
+/// (`-P`); the resulting binary additionally writes a `program_log/` tree
+/// (`ops.json` + per-worker `time/` and `memory/` logs) into its run-time cwd.
 pub async fn compile(
     cfg: &Config,
     program: &str,
     mode: Mode,
+    profile: bool,
 ) -> Result<PathBuf, FlowlogError> {
-    let key = cache_key(program, mode);
+    let key = cache_key(program, mode, profile);
     let cache_dir = cfg.work_dir.join("cache").join(&key);
     let bin = cache_dir.join("prog");
 
@@ -102,6 +117,11 @@ pub async fn compile(
             cmd.args(["-F", ".", "-D", "-"]);
         }
     }
+    if profile {
+        // Bakes timely/differential logging into the binary; at run time it
+        // emits `program_log/{ops.json,time,memory}` (see `PROFILE_LOG_DIR`).
+        cmd.arg("-P");
+    }
 
     let output = run_capture(cmd, cfg.compile_timeout)
         .await?
@@ -118,9 +138,19 @@ pub async fn compile(
         )));
     }
 
+    // Promote the binary into the cache via a uniquely-named staging file +
+    // atomic rename. Renaming over a path another request is *executing* is
+    // safe on Linux (the running process keeps the old inode); copying
+    // directly onto it is not — that yields ETXTBSY ("Text file busy"). The
+    // staging name is unique per (pid, seq) so concurrent compiles of the same
+    // program never clobber each other mid-copy.
+    static STAGE_SEQ: AtomicU64 = AtomicU64::new(0);
     fs::create_dir_all(&cache_dir).await?;
-    fs::copy(&out_bin, &bin).await?;
-    make_executable(&bin).await?;
+    let seq = STAGE_SEQ.fetch_add(1, Ordering::Relaxed);
+    let staged = cache_dir.join(format!(".prog.staging.{}.{}", std::process::id(), seq));
+    fs::copy(&out_bin, &staged).await?;
+    make_executable(&staged).await?;
+    fs::rename(&staged, &bin).await?;
     Ok(bin)
 }
 
@@ -145,6 +175,119 @@ pub async fn run_batch(
         return Err(FlowlogError::Run(combined_output(&output)));
     }
     Ok(elapsed)
+}
+
+/// Name of the per-program profiling directory a profiled binary writes at
+/// run time. The compiler derives it from the `.dl` stem, and we always
+/// compile from a file named `program.dl`, so it is always `program_log`.
+const PROFILE_LOG_DIR: &str = "program_log";
+
+/// Render the profiling logs a profiled run left under `work` into a single
+/// self-contained HTML report and return it, enforcing `cfg.max_report_bytes`.
+///
+/// Shared by batch and incremental report generation: it runs the visualizer
+/// over `program_log/`, size-checks the output before reading it, and returns
+/// the HTML (or a `FlowlogError` the caller turns into a `report_error`).
+pub async fn render_report(cfg: &Config, work: &Path) -> Result<String, FlowlogError> {
+    let out_html = work.join("report.html");
+    run_profile_viz(cfg, work, &out_html).await?;
+    // Size-check via metadata first, so an over-cap report is never read into
+    // memory just to be discarded.
+    let len = fs::metadata(&out_html).await?.len() as usize;
+    if len > cfg.max_report_bytes {
+        return Err(FlowlogError::ReportTooLarge {
+            len,
+            limit: cfg.max_report_bytes,
+        });
+    }
+    fs::read_to_string(&out_html)
+        .await
+        .map_err(|e| FlowlogError::Profile(format!("server error reading report: {e}")))
+}
+
+/// Render the `program_log/` tree a profiled run left in `work` into a single
+/// self-contained HTML report at `out_html`, using `flowlog-profile-viz`.
+///
+/// The visualizer takes the static plan graph (`ops.json`) plus the per-worker
+/// `time/` and `memory/` log folders and embeds everything into one HTML file.
+async fn run_profile_viz(
+    cfg: &Config,
+    work: &Path,
+    out_html: &Path,
+) -> Result<(), FlowlogError> {
+    let log_dir = find_profile_log_dir(work).await.ok_or_else(|| {
+        FlowlogError::Profile(
+            "the program produced no profiling output (program_log/ not found)".to_string(),
+        )
+    })?;
+
+    let ops = log_dir.join("ops.json");
+    let time = log_dir.join("time");
+    let memory = log_dir.join("memory");
+    for (path, what) in [(&ops, "ops.json"), (&time, "time/"), (&memory, "memory/")] {
+        if !fs::try_exists(path).await? {
+            // In an incremental session the per-timestamp snapshots only appear
+            // after a commit, so this is the usual "nothing to report yet" path.
+            return Err(FlowlogError::Profile(format!(
+                "no profiling snapshots yet ({what} not written). \
+                 Run at least one commit before generating a report."
+            )));
+        }
+    }
+
+    let mut cmd = Command::new(&cfg.profile_viz);
+    cmd.arg("-p")
+        .arg(&ops)
+        .arg("-t")
+        .arg(&time)
+        .arg("-m")
+        .arg(&memory)
+        .arg("-o")
+        .arg(out_html);
+
+    // Spawn failures (e.g. the visualizer binary isn't installed) surface here
+    // as a clear, named profiling error rather than a bare OS error string.
+    let output = run_capture(cmd, cfg.profile_timeout)
+        .await
+        .map_err(|e| {
+            FlowlogError::Profile(format!(
+                "could not run the profile visualizer ({}): {e}",
+                cfg.profile_viz.display()
+            ))
+        })?
+        .ok_or(FlowlogError::ProfileTimeout(cfg.profile_timeout))?;
+    if !output.status.success() {
+        return Err(FlowlogError::Profile(combined_output(&output)));
+    }
+    if !fs::try_exists(out_html).await? {
+        return Err(FlowlogError::Profile(
+            "the visualizer reported success but wrote no report".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Locate the profiling directory under `work`. Prefers the conventional
+/// `program_log/`, falling back to the first `*_log/` directory should the
+/// upstream stem-naming change.
+async fn find_profile_log_dir(work: &Path) -> Option<PathBuf> {
+    let conventional = work.join(PROFILE_LOG_DIR);
+    if fs::try_exists(&conventional).await.unwrap_or(false) {
+        return Some(conventional);
+    }
+    let mut entries = fs::read_dir(work).await.ok()?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let path = entry.path();
+        let is_dir = entry.file_type().await.map(|t| t.is_dir()).unwrap_or(false);
+        let is_log = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.ends_with("_log"));
+        if is_dir && is_log {
+            return Some(path);
+        }
+    }
+    None
 }
 
 /// Spawn a process, capture its output, and enforce a timeout.

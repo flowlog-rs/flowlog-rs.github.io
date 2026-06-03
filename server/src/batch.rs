@@ -11,7 +11,21 @@
 //! {"type":"result","results":{...},"stats":{"time_ms":12,"tuples":5}}
 //! ```
 //!
-//! A failure is reported as a single `{"type":"error","text":"..."}` line.
+//! When `options.profile` is set, the binary is compiled with `-P` and, after
+//! the result, the FlowLog profile visualizer renders a self-contained HTML
+//! report streamed as a trailing line:
+//!
+//! ```text
+//! {"type":"status","phase":"profiling"}
+//! {"type":"report","html":"<!doctype html>..."}
+//! ```
+//!
+//! Report generation is best-effort: if it fails, a non-fatal
+//! `{"type":"report_error","text":"..."}` line is sent and the results still
+//! stand.
+//!
+//! A fatal failure (compile/run) is reported as a single
+//! `{"type":"error","text":"..."}` line.
 
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -44,12 +58,17 @@ pub struct RunRequest {
 struct Options {
     #[serde(default = "default_workers")]
     workers: u32,
+    /// When true, compile with `-P` and generate a self-contained profile
+    /// report alongside the results.
+    #[serde(default)]
+    profile: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
         Options {
             workers: default_workers(),
+            profile: false,
         }
     }
 }
@@ -142,7 +161,7 @@ async fn batch_job(
     }
 
     emit!(json!({"type": "status", "phase": "compiling"}));
-    let bin = match flowlog::compile(&cfg, &req.program, Mode::Batch).await {
+    let bin = match flowlog::compile(&cfg, &req.program, Mode::Batch, req.options.profile).await {
         Ok(b) => b,
         Err(e) => {
             emit!(json!({"type": "error", "text": e.to_string()}));
@@ -218,6 +237,21 @@ async fn batch_job(
     emit!(json!({
         "type": "result",
         "results": results,
-        "stats": { "time_ms": elapsed.as_millis() as u64, "tuples": tuples },
+        "stats": {
+            "time_ms": elapsed.as_millis() as u64,
+            "tuples": tuples,
+            "profiled": req.options.profile,
+        },
     }));
+
+    // Profile report — best effort. The run itself already succeeded, so any
+    // failure here is reported as a non-fatal `report_error` rather than
+    // failing the whole request.
+    if req.options.profile {
+        emit!(json!({"type": "status", "phase": "profiling"}));
+        match flowlog::render_report(&cfg, work.path()).await {
+            Ok(html) => emit!(json!({"type": "report", "html": html})),
+            Err(e) => emit!(json!({"type": "report_error", "text": e.to_string()})),
+        }
+    }
 }

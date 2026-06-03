@@ -145,22 +145,57 @@ MemoryAlias(x, x) :- Assign(x, y).`,
 
 const DEFAULT_SERVER = 'https://helped-hills-plan-thursday.trycloudflare.com';
 
+// Resolve the backend base URL:
+//   1. `?server=<url>` query param wins (explicit override), else
+//   2. when the page itself is served from localhost (i.e. `make local`),
+//      target the local backend on this host's `:8088`, else
+//   3. the hosted default server.
+// SSR has no `window`, so it falls back to the default.
+const LOCAL_BACKEND_PORT = 8088;
+function resolveServer() {
+  if (typeof window === 'undefined') return DEFAULT_SERVER;
+  try {
+    const { search, hostname, protocol } = window.location;
+    const override = new URLSearchParams(search).get('server');
+    if (override) return override;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `${protocol}//${hostname}:${LOCAL_BACKEND_PORT}`;
+    }
+    return DEFAULT_SERVER;
+  } catch {
+    return DEFAULT_SERVER;
+  }
+}
+
+// Sentinel result-tab id for the self-contained profile report (vs. the
+// per-relation output tabs, which are keyed by relation name).
+const PROFILE_TAB = '__profile__';
+
+// The profile report opens in its own browser window when the user clicks
+// "Open report" (the embedded pane is too small for the interactive DAG).
+// Reusing one window name focuses/replaces it.
+const REPORT_WINDOW_NAME = 'flowlogProfileReport';
+const REPORT_WINDOW_FEATURES = 'width=1200,height=820';
+
 // Human-readable label for each batch progress phase reported by the server.
 const PHASE_LABELS = {
   compiling: 'Compiling…',
   compiled: 'Compiled ✓',
   running: 'Running…',
   done: 'Collecting results…',
+  profiling: 'Profiling…',
 };
 
 // ─── API client ───
 
 // Runs a batch program and streams progress. The server responds with
 // newline-delimited JSON; `onEvent` is called once per event:
-//   { type: 'status', phase: 'compiling' | 'compiled' | 'running' | 'done' }
+//   { type: 'status', phase: 'compiling' | 'compiled' | 'running' | 'done' | 'profiling' }
 //   { type: 'result', results: {...}, stats: {...} }
+//   { type: 'report', html: '...' }           (only when profiling was requested)
+//   { type: 'report_error', text: '...' }      (non-fatal profiling failure)
 //   { type: 'error',  text: '...' }
-async function apiBatchRun(server, { program, facts, workers }, onEvent) {
+async function apiBatchRun(server, { program, facts, workers, profile }, onEvent) {
   const factsObj = {};
   for (const f of facts) {
     if (f.name.trim()) {
@@ -174,7 +209,7 @@ async function apiBatchRun(server, { program, facts, workers }, onEvent) {
     body: JSON.stringify({
       program,
       facts: factsObj,
-      options: { workers },
+      options: { workers, profile },
     }),
   });
 
@@ -244,14 +279,28 @@ function enrichRows(rows, delta) {
   return out;
 }
 
-function createSession(server, program, workers) {
+function createSession(server, workers, profile) {
   const params = new URLSearchParams({
     workers: String(workers),
+    profile: String(!!profile),
   });
 
   const wsUrl = server.replace(/^http/, 'ws') + `/api/session?${params}`;
   const ws = new WebSocket(wsUrl);
   return ws;
+}
+
+// Parse a server `{ RelName: "csv", ... }` results object into the table form
+// `{ RelName: rows[][] }` the UI renders.
+function parseRelations(resultsObj) {
+  const relations = {};
+  for (const [name, csv] of Object.entries(resultsObj || {})) {
+    relations[name] = csv
+      .split('\n')
+      .filter(line => line.trim() !== '')
+      .map(line => line.split(','));
+  }
+  return relations;
 }
 
 // ─── Component ───
@@ -265,14 +314,25 @@ export default function Playground() {
   // Mode & config
   const [mode, setMode] = useState('batch'); // 'batch' | 'incremental'
   const [workers, setWorkers] = useState(4);
-  const [server, setServer] = useState(DEFAULT_SERVER);
+  const [profile, setProfile] = useState(false); // batch: also build a profile report
+  const [server, setServer] = useState(resolveServer);
 
   // Execution state
   const [running, setRunning] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null); // { relations: { name: rows[][] }, stats }
   const [activeResult, setActiveResult] = useState(null);
-  const [phase, setPhase] = useState(null); // batch progress: compiling | compiled | running | done
+  const [phase, setPhase] = useState(null); // batch progress: compiling | compiled | running | done | profiling
+
+  // Profile report state (batch + profiling). `reportPending` is true between
+  // a profiled result arriving and its report (or report error) landing.
+  const [report, setReport] = useState(null);          // self-contained HTML string
+  const [reportError, setReportError] = useState(null); // non-fatal profiling failure text
+  const [reportPending, setReportPending] = useState(false);
+  // Incremental: profiling snapshots only exist after a commit, so the report
+  // auto-refreshes on each commit once the session has committed at least once.
+  // A ref (not state) avoids a stale closure inside the ws.onmessage handler.
+  const hasCommittedRef = useRef(false);
 
   // Incremental mode state
   const [sessionActive, setSessionActive] = useState(false);
@@ -353,6 +413,32 @@ export default function Playground() {
     };
   }, []);
 
+  // ─── Profile report state ───
+
+  // Clear all report state (the three atoms move as one unit).
+  const resetReport = useCallback(() => {
+    setReport(null);
+    setReportError(null);
+    setReportPending(false);
+  }, []);
+
+  // Apply a `report` / `report_error` message to the shared report state.
+  // Returns true if it handled the message.
+  const applyReportMessage = useCallback((m) => {
+    if (m.type === 'report') {
+      setReport(m.html || '');
+      setReportError(null);
+      setReportPending(false);
+      return true;
+    }
+    if (m.type === 'report_error') {
+      setReportError(m.text || 'Profile report generation failed');
+      setReportPending(false);
+      return true;
+    }
+    return false;
+  }, []);
+
   // ─── Example loading ───
 
   const loadExample = useCallback((idx) => {
@@ -363,7 +449,8 @@ export default function Playground() {
     setResults(null);
     setActiveResult(null);
     setError(null);
-  }, []);
+    resetReport();
+  }, [resetReport]);
 
   // ─── Facts management ───
 
@@ -379,6 +466,35 @@ export default function Playground() {
     setFacts(prev => prev.map((f, i) => i === idx ? { ...f, [field]: value } : f));
   }, []);
 
+  // ─── Profile report actions ───
+
+  // Make a Blob URL for the current report, hand it to `use`, and revoke it
+  // shortly after (the consuming window/anchor keeps its own copy).
+  const withReportUrl = useCallback((use) => {
+    if (!report) return;
+    const url = URL.createObjectURL(new Blob([report], { type: 'text/html' }));
+    use(url);
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }, [report]);
+
+  // Open the (already-received) report in its own browser window. Runs from a
+  // click gesture, so the popup is allowed; the report HTML never leaves the
+  // browser until the user asks for it here (or via Download).
+  const openReport = useCallback(() => {
+    withReportUrl(url => window.open(url, REPORT_WINDOW_NAME, REPORT_WINDOW_FEATURES));
+  }, [withReportUrl]);
+
+  const downloadReport = useCallback(() => {
+    withReportUrl(url => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'flowlog-profile-report.html';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+  }, [withReportUrl]);
+
   // ─── Batch execution ───
 
   const runBatch = useCallback(async () => {
@@ -387,33 +503,32 @@ export default function Playground() {
     setResults(null);
     setActiveResult(null);
     setPhase('compiling');
+    // Reset the previous report; arm the pending state only for profiled runs.
+    resetReport();
+    setReportPending(profile);
 
     try {
       await apiBatchRun(
         server,
-        { program, facts, workers },
+        { program, facts, workers, profile },
         (evt) => {
           if (evt.type === 'status') {
-            // Live progress: compiling → compiled → running → done
+            // Live progress: compiling → compiled → running → done → profiling
             setPhase(evt.phase);
           } else if (evt.type === 'error') {
             setError(evt.text || 'Execution failed');
           } else if (evt.type === 'result') {
             // evt: { results: { RelName: "csv", ... }, stats: { time_ms, tuples } }
-            const relations = {};
-            if (evt.results) {
-              for (const [name, csv] of Object.entries(evt.results)) {
-                relations[name] = csv
-                  .split('\n')
-                  .filter(line => line.trim() !== '')
-                  .map(line => line.split(','));
-              }
-            }
+            const relations = parseRelations(evt.results);
             setResults({ relations, stats: evt.stats || {}, deltas: {} });
             const names = Object.keys(relations);
+            // Show a relation by default; the Profile tab is available for the
+            // user to click (we don't steal focus to it).
             if (names.length > 0) {
               setActiveResult(names[0]);
             }
+          } else {
+            applyReportMessage(evt);
           }
         },
       );
@@ -422,8 +537,9 @@ export default function Playground() {
     } finally {
       setRunning(false);
       setPhase(null);
+      setReportPending(false);
     }
-  }, [server, program, facts, workers]);
+  }, [server, program, facts, workers, profile, resetReport, applyReportMessage]);
 
   // ─── Incremental session ───
 
@@ -436,11 +552,13 @@ export default function Playground() {
     setTerminalLines([]);
     setResults(null);
     setActiveResult(null);
+    resetReport();
+    hasCommittedRef.current = false;
 
     addTerminalLine('info', `Connecting to ${server}...`);
 
     try {
-      const ws = createSession(server, program, workers);
+      const ws = createSession(server, workers, profile);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -448,6 +566,9 @@ export default function Playground() {
         addTerminalLine('success', 'Session established.');
         addTerminalLine('info', 'Program loaded. Use begin/put/file/commit/abort commands.');
         addTerminalLine('muted', 'Type "help" for available commands.');
+        if (profile) {
+          addTerminalLine('muted', 'Profiling on — the report refreshes after each commit; open it from the Profile tab.');
+        }
 
         // Send the program to initialize the session
         ws.send(JSON.stringify({ type: 'init', program, facts: (() => {
@@ -469,24 +590,33 @@ export default function Playground() {
             addTerminalLine('error', msg.text);
           } else if (msg.type === 'result') {
             // Update results pane
-            const relations = {};
-            if (msg.results) {
-              for (const [name, csv] of Object.entries(msg.results)) {
-                const rows = csv
-                  .split('\n')
-                  .filter(line => line.trim() !== '')
-                  .map(line => line.split(','));
-                relations[name] = rows;
-              }
-            }
+            const relations = parseRelations(msg.results);
             setResults({ relations, stats: msg.stats || {}, deltas: msg.deltas || {} });
             const names = Object.keys(relations);
             if (names.length > 0) {
-              setActiveResult(prev => (prev && names.includes(prev)) ? prev : names[0]);
+              // Keep the Profile tab focused if the user is viewing it.
+              setActiveResult(prev =>
+                (prev === PROFILE_TAB || (prev && names.includes(prev))) ? prev : names[0]
+              );
             }
             addTerminalLine('success', `Committed at T=${msg.stats?.timestamp ?? '?'}. ${msg.stats?.tuples ?? 0} tuple(s).`);
+            // Auto-refresh the profile report after each commit (once profiling
+            // is on and the session has committed). The report updates in the
+            // background; the user opens it from the Profile tab when they want.
+            if (profile && hasCommittedRef.current &&
+                wsRef.current?.readyState === WebSocket.OPEN) {
+              setReportError(null);
+              setReportPending(true);
+              wsRef.current.send(JSON.stringify({ type: 'profile' }));
+            }
           } else if (msg.type === 'info') {
             addTerminalLine('info', msg.text);
+          } else if (msg.type === 'report') {
+            // Refreshed in the background — don't steal the user's tab focus.
+            applyReportMessage(msg);
+          } else if (msg.type === 'report_error') {
+            applyReportMessage(msg);
+            addTerminalLine('error', `Profile: ${msg.text || 'report generation failed'}`);
           }
         } catch {
           addTerminalLine('default', event.data);
@@ -505,7 +635,7 @@ export default function Playground() {
     } catch (err) {
       setError(err.message);
     }
-  }, [server, program, facts, workers, addTerminalLine]);
+  }, [server, program, facts, workers, profile, addTerminalLine, resetReport, applyReportMessage]);
 
   const stopSession = useCallback(() => {
     if (wsRef.current) {
@@ -518,6 +648,10 @@ export default function Playground() {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
     addTerminalLine('prompt', `>> ${cmd}`);
+    // Profiling snapshots are written on commit, so the report only auto-
+    // refreshes once the session has committed at least once.
+    const verb = cmd.trim().split(/\s+/)[0]?.toLowerCase();
+    if (verb === 'commit' || verb === 'done') hasCommittedRef.current = true;
     wsRef.current.send(JSON.stringify({ type: 'command', command: cmd }));
   }, [addTerminalLine]);
 
@@ -530,15 +664,63 @@ export default function Playground() {
 
   // ─── Render helpers ───
 
+  // Profile tab body: error, a pending spinner, or a "report ready" panel. The
+  // report itself renders full-size in its own browser window (the embedded
+  // pane is too cramped for the interactive DAG).
+  const renderProfileContent = () => {
+    if (reportError) {
+      return (
+        <div className={styles.resultEmpty}>
+          <div className={`${styles.resultEmptyIcon} ${styles.reportErrorIcon}`}>&#9888;</div>
+          <div className={styles.resultEmptyText}>Profile report unavailable</div>
+          <div className={styles.resultEmptyHint}>{reportError}</div>
+        </div>
+      );
+    }
+    if (!report) {
+      return (
+        <div className={styles.resultEmpty}>
+          <div className={styles.resultEmptyIcon}><span className={styles.spinner} /></div>
+          <div className={styles.resultEmptyText}>Generating profile report…</div>
+          <div className={styles.resultEmptyHint}>
+            Rendering the timely / differential profile into an interactive report
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className={styles.resultEmpty}>
+        <div className={styles.resultEmptyIcon}><span className={styles.profileTabIcon}>&#9201;</span></div>
+        <div className={styles.resultEmptyText}>Profile report ready</div>
+        <div className={styles.resultEmptyHint}>
+          Open the full interactive report in a new window, or download the self-contained HTML.
+        </div>
+        <div className={styles.profileOpenActions}>
+          <button className={styles.profileOpenBtn} onClick={openReport}>
+            &#8599; Open report
+          </button>
+          <button className={styles.profileActionBtn} onClick={downloadReport}>
+            &#8595; Download
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderResultsPane = () => {
-    // While a batch run is in flight, show the server-reported progress steps.
-    if (running && mode === 'batch') {
+    // The Profile tab appears as soon as a report is requested (batch run, or
+    // an incremental "Profile report" click) — even before it lands.
+    const showProfileTab = reportPending || report || reportError;
+
+    // Before results arrive, show the server-reported progress steps.
+    if (running && mode === 'batch' && !results) {
       const steps = [
         { key: 'compiling', label: 'Compiling program' },
         { key: 'running', label: 'Running evaluation' },
         { key: 'done', label: 'Collecting results' },
+        ...(profile ? [{ key: 'profiling', label: 'Building profile report' }] : []),
       ];
-      const stepOf = { compiling: 0, compiled: 0, running: 1, done: 2 };
+      const stepOf = { compiling: 0, compiled: 0, running: 1, done: 2, profiling: 3 };
       const current = stepOf[phase] ?? 0;
       return (
         <div className={styles.resultEmpty}>
@@ -564,7 +746,8 @@ export default function Playground() {
         </div>
       );
     }
-    if (!results || Object.keys(results.relations).length === 0) {
+    const noRelations = !results || Object.keys(results.relations).length === 0;
+    if (noRelations && !showProfileTab) {
       return (
         <div className={styles.resultEmpty}>
           <div className={styles.resultEmptyIcon}>&#9655;</div>
@@ -580,11 +763,17 @@ export default function Playground() {
       );
     }
 
-    const names = Object.keys(results.relations);
-    const currentName = activeResult || names[0];
-    const rows = results.relations[currentName] || [];
-    const delta = results.deltas?.[currentName] || null;
-    const enriched = enrichRows(rows, delta);
+    const names = results ? Object.keys(results.relations) : [];
+    const onProfileTab = showProfileTab && activeResult === PROFILE_TAB;
+    const currentName = (activeResult && activeResult !== PROFILE_TAB && names.includes(activeResult))
+      ? activeResult
+      : names[0];
+
+    // Table data — only computed for the relation view.
+    const tableName = (!onProfileTab && currentName) ? currentName : null;
+    const rows = tableName ? (results.relations[tableName] || []) : [];
+    const delta = tableName ? (results.deltas?.[tableName] || null) : null;
+    const enriched = tableName ? enrichRows(rows, delta) : [];
     const colCount = enriched[0]?.row.length ?? rows[0]?.length ?? 0;
 
     const rowClassFor = (status) => {
@@ -599,15 +788,32 @@ export default function Playground() {
           {names.map(name => (
             <button
               key={name}
-              className={`${styles.resultTab} ${name === currentName ? styles.resultTabActive : ''}`}
+              className={`${styles.resultTab} ${(!onProfileTab && name === currentName) ? styles.resultTabActive : ''}`}
               onClick={() => setActiveResult(name)}
             >
               {name} ({results.relations[name].length})
             </button>
           ))}
+          {showProfileTab && (
+            <button
+              key={PROFILE_TAB}
+              className={`${styles.resultTab} ${styles.profileTab} ${onProfileTab ? styles.resultTabActive : ''}`}
+              onClick={() => setActiveResult(PROFILE_TAB)}
+              title="Self-contained profiling report"
+            >
+              <span className={styles.profileTabIcon}>&#9201;</span> Profile
+              {reportPending && <span className={styles.profileTabSpinner} />}
+            </button>
+          )}
         </div>
         <div className={styles.resultsContent}>
-          {enriched.length === 0 ? (
+          {onProfileTab ? (
+            renderProfileContent()
+          ) : !tableName ? (
+            <div className={styles.resultEmpty}>
+              <div className={styles.resultEmptyText}>No output relations</div>
+            </div>
+          ) : enriched.length === 0 ? (
             <div className={styles.resultEmpty}>
               <div className={styles.resultEmptyText}>No tuples in {currentName}</div>
             </div>
@@ -679,6 +885,7 @@ export default function Playground() {
                   setResults(null);
                   setActiveResult(null);
                   setError(null);
+                  resetReport();
                   if (e.target.value === 'batch' && sessionActive) {
                     stopSession();
                   }
@@ -698,6 +905,22 @@ export default function Playground() {
                 max={8}
                 onChange={e => setWorkers(Math.min(8, Math.max(1, parseInt(e.target.value) || 1)))}
               />
+            </div>
+            <div className={styles.controlGroup}>
+              <span className={styles.label}>Profile</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={profile}
+                className={`${styles.toggle} ${profile ? styles.toggleOn : ''}`}
+                onClick={() => setProfile(p => !p)}
+                disabled={running || sessionActive}
+                title={mode === 'batch'
+                  ? 'Compile with -P and build an interactive profile report'
+                  : 'Compile with -P; generate a per-commit profile report from the session'}
+              >
+                <span className={styles.toggleKnob} />
+              </button>
             </div>
             <div className={styles.serverGroup}>
               <span
@@ -848,9 +1071,17 @@ export default function Playground() {
                 </button>
               ) : (
                 sessionActive ? (
-                  <button className={styles.stopBtn} onClick={stopSession}>
-                    Stop Session
-                  </button>
+                  <>
+                    <button className={styles.stopBtn} onClick={stopSession}>
+                      Stop Session
+                    </button>
+                    {profile && (
+                      <span className={styles.profilingChip}>
+                        <span className={styles.profileTabIcon}>&#9201;</span>
+                        {reportPending ? 'Profiling — refreshing…' : 'Profiling — auto-refreshes on commit'}
+                      </span>
+                    )}
+                  </>
                 ) : (
                   <button className={styles.runBtn} onClick={startSession}>
                     <span className={styles.runBtnIcon}>&#9655;</span> Start Session

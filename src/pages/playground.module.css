@@ -698,6 +698,9 @@
   flex: 1;
   overflow: auto;
   padding: 0;
+  /* Let this scroll container shrink within its flex parent rather than grow
+     to its content height. */
+  min-height: 0;
 }
 
 .resultTable {
@@ -1041,6 +1044,117 @@
 .resultsContent::-webkit-scrollbar-thumb {
   background: var(--pg-scrollbar-thumb);
   border-radius: 4px;
+}
+
+/* ─── Profile toggle + report viewer ─── */
+
+/* Pill toggle for the batch "Profile" switch in the header. */
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--pg-select-border);
+  border-radius: 999px;
+  background: var(--pg-select-bg);
+  cursor: pointer;
+  transition: background-color 0.18s, border-color 0.18s;
+}
+
+.toggle:hover:not(:disabled) {
+  border-color: var(--pg-accent-blue);
+}
+
+.toggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.toggleKnob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--pg-muted);
+  transform: translate(0, -50%);
+  transition: transform 0.18s ease, background-color 0.18s;
+}
+
+.toggleOn {
+  background: var(--pg-button-primary-bg);
+  border-color: transparent;
+}
+
+.toggleOn .toggleKnob {
+  background: #fff;
+  transform: translate(18px, -50%);
+}
+
+/* Profile result tab — sits alongside the per-relation output tabs. */
+.profileTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profileTabIcon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.profileTabSpinner {
+  composes: spinner;
+  width: 10px;
+  height: 10px;
+}
+
+/* Secondary "Download" button — same pill as "+ Add Relation", transparent. */
+.profileActionBtn {
+  composes: addFactBtn;
+  padding: 6px 12px;
+  background: transparent;
+  white-space: nowrap;
+}
+
+/* Status chip shown in an incremental session when profiling is on (the report
+   auto-refreshes after each commit). */
+.profilingChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--pg-brand-font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pg-accent-blue);
+  background: var(--pg-badge-bg);
+  border: 1px solid var(--pg-card-border);
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* "Report ready" panel actions (Profile tab). */
+.profileOpenActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* Primary "Open report" button — the runBtn pill, slightly smaller. */
+.profileOpenBtn {
+  composes: runBtn;
+  font-size: 13px;
+  padding: 9px 20px;
+  gap: 7px;
+}
+
+.reportErrorIcon {
+  background: linear-gradient(135deg, rgba(218, 54, 51, 0.16), rgba(210, 153, 34, 0.12));
+  color: var(--pg-error);
 }
 
 /* ─── Responsive ─── */
