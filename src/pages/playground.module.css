@@ -1157,6 +1157,162 @@
   color: var(--pg-error);
 }
 
+/* ─── Server dataset (read-only preview) ─── */
+
+.datasetNote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 12px 14px;
+  margin: 12px;
+  border: 1px solid var(--pg-card-border);
+  border-radius: 10px;
+  background: var(--pg-badge-bg);
+  font-family: var(--pg-brand-font);
+  font-size: 13px;
+  color: var(--pg-text);
+  flex-shrink: 0;
+}
+
+.datasetNoteIcon {
+  font-size: 15px;
+}
+
+.datasetNoteTitle {
+  font-weight: 700;
+  color: var(--pg-accent-blue);
+}
+
+.datasetNoteTitle code,
+.datasetNoteText code {
+  font-family: var(--pg-mono-font);
+  background: var(--pg-card-bg);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+
+.datasetNoteText {
+  flex-basis: 100%;
+  color: var(--pg-muted);
+  line-height: 1.5;
+}
+
+.datasetFiles {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.datasetFile {
+  border: 1px solid var(--pg-card-border);
+  border-radius: 8px;
+  background: var(--pg-card-bg);
+  overflow: hidden;
+}
+
+.datasetFileHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: var(--pg-result-header);
+  border-bottom: 1px solid var(--pg-card-border);
+}
+
+.datasetFileName {
+  font-family: var(--pg-mono-font);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pg-accent-blue);
+}
+
+.datasetFileRows {
+  font-family: var(--pg-brand-font);
+  font-size: 11px;
+  color: var(--pg-muted);
+}
+
+.datasetFilePreview {
+  margin: 0;
+  padding: 8px 12px;
+  font-family: var(--pg-mono-font);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pg-text);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ─── Relation sizes (.printsize output) ─── */
+
+.sizesPane {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sizesTitle {
+  font-family: var(--pg-brand-font);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--pg-accent-blue);
+}
+
+.sizesGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sizeItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 20px;
+  border: 1px solid var(--pg-card-border);
+  border-radius: 10px;
+  background: var(--pg-card-bg);
+  min-width: 120px;
+}
+
+.sizeRel {
+  font-family: var(--pg-mono-font);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pg-muted);
+  text-transform: uppercase;
+}
+
+.sizeCount {
+  font-family: var(--pg-mono-font);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--pg-text);
+}
+
+.sizesHint {
+  font-family: var(--pg-brand-font);
+  font-size: 12px;
+  color: var(--pg-muted);
+  line-height: 1.5;
+  max-width: 42rem;
+}
+
+.sizesHint code {
+  font-family: var(--pg-mono-font);
+  background: var(--pg-badge-bg);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+
 /* ─── Responsive ─── */
 
 /* Tablet portrait & phones: stack panels vertically and disable drag

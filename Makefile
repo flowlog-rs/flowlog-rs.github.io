@@ -47,6 +47,10 @@ CLOUDFLARED_URL  := https://github.com/cloudflare/cloudflared/releases/latest/do
 PORT             ?= 8080
 BIND_ADDR        ?= 0.0.0.0:$(PORT)
 ALLOWED_ORIGINS  ?= *
+# Server-side datasets (the Galen demo lives here). Longer run timeout so the
+# heavier Galen join orders finish instead of hitting the default 30s cap.
+DATASETS_DIR     ?= $(SERVER_DIR)/datasets
+RUN_TIMEOUT_SECS ?= 120
 
 # --- local dev knobs (for `make local`) -----------------------------------
 LOCAL_PORT       ?= 8088
@@ -163,6 +167,8 @@ start: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN)
 	  nohup bash -c 'source $(CARGO_ENV) 2>/dev/null || true; \
 	    FLOWLOG_COMPILER=$(FLOWLOG_BIN) \
 	    FLOWLOG_PROFILE_VIZ=$(PROFILE_VIZ_BIN) \
+	    DATASETS_DIR=$(DATASETS_DIR) \
+	    RUN_TIMEOUT_SECS=$(RUN_TIMEOUT_SECS) \
 	    BIND_ADDR=$(BIND_ADDR) \
 	    ALLOWED_ORIGINS="$(ALLOWED_ORIGINS)" \
 	    exec $(SERVER_BIN)' >$(BACKEND_LOG) 2>&1 & \
@@ -246,6 +252,8 @@ run: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN)
 	@echo '==> backend foreground on $(BIND_ADDR)  (Ctrl+C to stop)'
 	@FLOWLOG_COMPILER=$(FLOWLOG_BIN) \
 	 FLOWLOG_PROFILE_VIZ=$(PROFILE_VIZ_BIN) \
+	 DATASETS_DIR=$(DATASETS_DIR) \
+	 RUN_TIMEOUT_SECS=$(RUN_TIMEOUT_SECS) \
 	 BIND_ADDR=$(BIND_ADDR) \
 	 ALLOWED_ORIGINS='$(ALLOWED_ORIGINS)' \
 	 $(SERVER_BIN)
@@ -254,6 +262,8 @@ tunnel: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN)
 	@echo '==> backend + cloudflared foreground (Ctrl+C stops both)'
 	@FLOWLOG_COMPILER=$(FLOWLOG_BIN) \
 	 FLOWLOG_PROFILE_VIZ=$(PROFILE_VIZ_BIN) \
+	 DATASETS_DIR=$(DATASETS_DIR) \
+	 RUN_TIMEOUT_SECS=$(RUN_TIMEOUT_SECS) \
 	 BIND_ADDR=$(BIND_ADDR) \
 	 ALLOWED_ORIGINS='$(ALLOWED_ORIGINS)' \
 	 $(SERVER_BIN) >/tmp/flowlog-fg-backend.log 2>&1 & \
@@ -272,6 +282,8 @@ local: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) node_modules
 	@bash -c 'source $(CARGO_ENV) 2>/dev/null || true; \
 	  FLOWLOG_COMPILER=$(FLOWLOG_BIN) \
 	  FLOWLOG_PROFILE_VIZ=$(PROFILE_VIZ_BIN) \
+	  DATASETS_DIR=$(DATASETS_DIR) \
+	  RUN_TIMEOUT_SECS=$(RUN_TIMEOUT_SECS) \
 	  BIND_ADDR=127.0.0.1:$(LOCAL_PORT) \
 	  ALLOWED_ORIGINS="*" \
 	  PATH="$(HOME)/.cargo/bin:$$PATH" \

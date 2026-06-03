@@ -5,6 +5,7 @@
 
 mod batch;
 mod config;
+mod dataset;
 mod flowlog;
 mod session;
 
@@ -35,6 +36,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/health", get(|| async { "ok" }))
         .route("/api/run", post(batch::run_handler))
+        .route("/api/dataset/{name}", get(dataset::dataset_handler))
         .route("/api/session", get(session::session_handler))
         // Body cap covering a max-size program plus its input facts.
         .layer(DefaultBodyLimit::max(4 * 1024 * 1024))

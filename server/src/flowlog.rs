@@ -155,13 +155,15 @@ pub async fn compile(
 }
 
 /// Run a compiled batch executable with `cwd = work`, returning the elapsed
-/// run time. Input/output CSV files live under `work/facts` and `work/out`.
+/// run time and the program's captured output (stdout + stderr, which carries
+/// `.printsize` cardinality lines). Input/output CSV files live under
+/// `work/facts` and `work/out`.
 pub async fn run_batch(
     cfg: &Config,
     bin: &Path,
     work: &Path,
     workers: u32,
-) -> Result<Duration, FlowlogError> {
+) -> Result<(Duration, String), FlowlogError> {
     let mut cmd = Command::new(bin);
     cmd.arg("-w").arg(workers.to_string()).current_dir(work);
 
@@ -174,7 +176,15 @@ pub async fn run_batch(
     if !output.status.success() {
         return Err(FlowlogError::Run(combined_output(&output)));
     }
-    Ok(elapsed)
+    // `.printsize` cardinalities (and timing diagnostics) go to stderr, so
+    // return both streams for the caller to parse.
+    let mut captured = String::from_utf8_lossy(&output.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !stderr.trim().is_empty() {
+        captured.push('\n');
+        captured.push_str(&stderr);
+    }
+    Ok((elapsed, captured))
 }
 
 /// Name of the per-program profiling directory a profiled binary writes at

@@ -141,27 +141,52 @@ MemoryAlias(x, x) :- Assign(x, y).`,
       { name: 'Dereference.csv', csv: '5,1\n6,4' },
     ],
   },
+  // ─── Talk demo: Galen (join order) ───
+  // Server-side dataset (too large to upload inline), 32 threads. Loads the
+  // GOOD join order; live-edit rule 3's body to the bad order
+  //   P(x,z) :- U(w,r,z), Q(x,r,y), P(y,w).   (join U⋈Q first)
+  // and re-Run — same result, far slower. Watch the Time.
+  {
+    name: 'Galen (join order)',
+    dataset: 'galen',
+    workers: 32,
+    facts: [],
+    program: `.decl P(X: number, Z: number)
+.decl Q(X: number, Y: number, Z: number)
+.decl R(R: number, P: number, E: number)
+.decl C(Y: number, Z: number, W: number)
+.decl U(R: number, Z: number, W: number)
+.decl S(R: number, P: number)
+
+.input P(IO="file", filename="P.csv", delimiter=",")
+.input Q(IO="file", filename="Q.csv", delimiter=",")
+.input R(IO="file", filename="R.csv", delimiter=",")
+.input C(IO="file", filename="C.csv", delimiter=",")
+.input U(IO="file", filename="U.csv", delimiter=",")
+.input S(IO="file", filename="S.csv", delimiter=",")
+
+P(x,z) :- P(x,y), P(y,z).
+Q(x,r,z) :- P(x,y), Q(y,r,z).
+P(x,z) :- P(y,w), U(w,r,z), Q(x,r,y).
+P(x,z) :- C(y,w,z), P(x,w), P(x,y).
+Q(x,q,z) :- Q(x,r,z), S(r,q).
+Q(x,e,o) :- Q(x,y,z), R(y,u,e), Q(z,u,o).
+
+.printsize P
+.printsize Q`,
+  },
 ];
 
 const DEFAULT_SERVER = 'https://pubs-medicaid-avenue-where.trycloudflare.com';
 
-// Resolve the backend base URL:
-//   1. `?server=<url>` query param wins (explicit override), else
-//   2. when the page itself is served from localhost (i.e. `make local`),
-//      target the local backend on this host's `:8088`, else
-//   3. the hosted default server.
-// SSR has no `window`, so it falls back to the default.
-const LOCAL_BACKEND_PORT = 8088;
+// Resolve the backend base URL: `?server=<url>` query param wins (used by
+// `make local` to point at a local backend, e.g. `?server=http://localhost:8088`),
+// otherwise the hosted default server (the cloudflared tunnel). SSR has no
+// `window`, so it falls back to the default.
 function resolveServer() {
   if (typeof window === 'undefined') return DEFAULT_SERVER;
   try {
-    const { search, hostname, protocol } = window.location;
-    const override = new URLSearchParams(search).get('server');
-    if (override) return override;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return `${protocol}//${hostname}:${LOCAL_BACKEND_PORT}`;
-    }
-    return DEFAULT_SERVER;
+    return new URLSearchParams(window.location.search).get('server') || DEFAULT_SERVER;
   } catch {
     return DEFAULT_SERVER;
   }
@@ -195,7 +220,7 @@ const PHASE_LABELS = {
 //   { type: 'report', html: '...' }           (only when profiling was requested)
 //   { type: 'report_error', text: '...' }      (non-fatal profiling failure)
 //   { type: 'error',  text: '...' }
-async function apiBatchRun(server, { program, facts, workers, profile }, onEvent) {
+async function apiBatchRun(server, { program, facts, workers, profile, dataset }, onEvent) {
   const factsObj = {};
   for (const f of facts) {
     if (f.name.trim()) {
@@ -209,7 +234,7 @@ async function apiBatchRun(server, { program, facts, workers, profile }, onEvent
     body: JSON.stringify({
       program,
       facts: factsObj,
-      options: { workers, profile },
+      options: { workers, profile, dataset },
     }),
   });
 
@@ -307,8 +332,15 @@ function parseRelations(resultsObj) {
 
 export default function Playground() {
   // Editor state
-  const [program, setProgram] = useState(EXAMPLES[0].program);
-  const [facts, setFacts] = useState(EXAMPLES[0].facts.map(f => ({ ...f })));
+  // Start blank — the user types a program + data, or loads an example.
+  const [program, setProgram] = useState('');
+  const [facts, setFacts] = useState([]);
+  // Name of the active server-side dataset (e.g. 'galen'), or null for inline
+  // facts. Set by the Galen examples; non-null hides the inline facts editor.
+  const [dataset, setDataset] = useState(null);
+  // Read-only preview ({ files: [{name, rows, preview}], preview_rows }) of the
+  // active dataset, fetched from the server.
+  const [datasetPreview, setDatasetPreview] = useState(null);
   const [activeTab, setActiveTab] = useState('program'); // 'program' | 'facts'
 
   // Mode & config
@@ -413,6 +445,18 @@ export default function Playground() {
     };
   }, []);
 
+  // Fetch the read-only preview of the active server-side dataset.
+  useEffect(() => {
+    setDatasetPreview(null);
+    if (!dataset) return;
+    let cancelled = false;
+    fetch(`${server}/api/dataset/${encodeURIComponent(dataset)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled) setDatasetPreview(d); })
+      .catch(() => { /* leave null — the note still explains the dataset */ });
+    return () => { cancelled = true; };
+  }, [dataset, server]);
+
   // ─── Profile report state ───
 
   // Clear all report state (the three atoms move as one unit).
@@ -445,7 +489,10 @@ export default function Playground() {
     const ex = EXAMPLES[idx];
     if (!ex) return;
     setProgram(ex.program);
-    setFacts(ex.facts.map(f => ({ ...f })));
+    setFacts((ex.facts || []).map(f => ({ ...f })));
+    setDataset(ex.dataset || null);
+    setWorkers(ex.workers || 4);
+    setActiveTab('program');
     setResults(null);
     setActiveResult(null);
     setError(null);
@@ -510,7 +557,7 @@ export default function Playground() {
     try {
       await apiBatchRun(
         server,
-        { program, facts, workers, profile },
+        { program, facts, workers, profile, dataset },
         (evt) => {
           if (evt.type === 'status') {
             // Live progress: compiling → compiled → running → done → profiling
@@ -518,9 +565,9 @@ export default function Playground() {
           } else if (evt.type === 'error') {
             setError(evt.text || 'Execution failed');
           } else if (evt.type === 'result') {
-            // evt: { results: { RelName: "csv", ... }, stats: { time_ms, tuples } }
+            // evt: { results: {...}, sizes: { rel: count }, stats: {...} }
             const relations = parseRelations(evt.results);
-            setResults({ relations, stats: evt.stats || {}, deltas: {} });
+            setResults({ relations, sizes: evt.sizes || {}, stats: evt.stats || {}, deltas: {} });
             const names = Object.keys(relations);
             // Show a relation by default; the Profile tab is available for the
             // user to click (we don't steal focus to it).
@@ -539,7 +586,7 @@ export default function Playground() {
       setPhase(null);
       setReportPending(false);
     }
-  }, [server, program, facts, workers, profile, resetReport, applyReportMessage]);
+  }, [server, program, facts, workers, profile, dataset, resetReport, applyReportMessage]);
 
   // ─── Incremental session ───
 
@@ -746,8 +793,10 @@ export default function Playground() {
         </div>
       );
     }
+    const sizes = results?.sizes || {};
+    const hasSizes = Object.keys(sizes).length > 0;
     const noRelations = !results || Object.keys(results.relations).length === 0;
-    if (noRelations && !showProfileTab) {
+    if (noRelations && !showProfileTab && !hasSizes) {
       return (
         <div className={styles.resultEmpty}>
           <div className={styles.resultEmptyIcon}>&#9655;</div>
@@ -810,9 +859,27 @@ export default function Playground() {
           {onProfileTab ? (
             renderProfileContent()
           ) : !tableName ? (
-            <div className={styles.resultEmpty}>
-              <div className={styles.resultEmptyText}>No output relations</div>
-            </div>
+            hasSizes ? (
+              <div className={styles.sizesPane}>
+                <div className={styles.sizesTitle}>Relation sizes</div>
+                <div className={styles.sizesGrid}>
+                  {Object.entries(sizes).map(([rel, n]) => (
+                    <div key={rel} className={styles.sizeItem}>
+                      <span className={styles.sizeRel}>{rel}</span>
+                      <span className={styles.sizeCount}>{Number(n).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className={styles.sizesHint}>
+                  <code>.printsize</code> relations aren&apos;t materialized — only their cardinality
+                  is shown. Compare the <strong>Time</strong> above across join orders.
+                </div>
+              </div>
+            ) : (
+              <div className={styles.resultEmpty}>
+                <div className={styles.resultEmptyText}>No output relations</div>
+              </div>
+            )
           ) : enriched.length === 0 ? (
             <div className={styles.resultEmpty}>
               <div className={styles.resultEmptyText}>No tuples in {currentName}</div>
@@ -859,6 +926,9 @@ export default function Playground() {
     }
   };
 
+  // The server only allows the higher thread count for dataset (Galen) runs.
+  const maxWorkers = dataset ? 32 : 8;
+
   return (
     <Layout
       title="Playground"
@@ -886,6 +956,10 @@ export default function Playground() {
                   setActiveResult(null);
                   setError(null);
                   resetReport();
+                  if (e.target.value === 'incremental') {
+                    // Datasets are batch-only (file inputs + `-F`); drop it.
+                    setDataset(null);
+                  }
                   if (e.target.value === 'batch' && sessionActive) {
                     stopSession();
                   }
@@ -902,8 +976,8 @@ export default function Playground() {
                 className={styles.numberInput}
                 value={workers}
                 min={1}
-                max={8}
-                onChange={e => setWorkers(Math.min(8, Math.max(1, parseInt(e.target.value) || 1)))}
+                max={maxWorkers}
+                onChange={e => setWorkers(Math.min(maxWorkers, Math.max(1, parseInt(e.target.value) || 1)))}
               />
             </div>
             <div className={styles.controlGroup}>
@@ -961,7 +1035,7 @@ export default function Playground() {
                 className={`${styles.tab} ${activeTab === 'facts' ? styles.tabActive : ''}`}
                 onClick={() => setActiveTab('facts')}
               >
-                Input Facts ({facts.length})
+                {dataset ? `Dataset: ${dataset}` : `Input Facts (${facts.length})`}
               </button>
             </div>
 
@@ -987,11 +1061,41 @@ export default function Playground() {
                     className={styles.editor}
                     value={program}
                     onChange={e => setProgram(e.target.value)}
-                    placeholder="Write your Datalog program here..."
+                    placeholder="Type a Datalog program here, or pick an example above — then add input facts and Run."
                     spellCheck={false}
                     autoCapitalize="off"
                     autoCorrect="off"
                   />
+                </div>
+              </div>
+            ) : dataset ? (
+              <div className={styles.factsPanel}>
+                <div className={styles.datasetNote}>
+                  <span className={styles.datasetNoteIcon}>&#128230;</span>
+                  <span className={styles.datasetNoteTitle}>
+                    Server dataset <code>{dataset}</code> · read-only
+                  </span>
+                  <span className={styles.datasetNoteText}>
+                    Fixed dataset hosted on the server ({workers} threads). Edit the{' '}
+                    <strong>program</strong> — not the data — and Run to compare the Time.
+                  </span>
+                </div>
+                <div className={styles.datasetFiles}>
+                  {datasetPreview?.files ? datasetPreview.files.map(f => (
+                    <div className={styles.datasetFile} key={f.name}>
+                      <div className={styles.datasetFileHead}>
+                        <span className={styles.datasetFileName}>{f.name}</span>
+                        <span className={styles.datasetFileRows}>
+                          {Number(f.rows).toLocaleString()} rows
+                        </span>
+                      </div>
+                      <pre className={styles.datasetFilePreview}>
+                        {f.preview}{f.rows > (datasetPreview.preview_rows ?? 8) ? '\n…' : ''}
+                      </pre>
+                    </div>
+                  )) : (
+                    <div className={styles.factsEmpty}>Loading dataset preview…</div>
+                  )}
                 </div>
               </div>
             ) : (

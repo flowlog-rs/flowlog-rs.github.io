@@ -29,21 +29,27 @@
 
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
+use regex::Regex;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::fs;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::wrappers::ReceiverStream;
 
 use crate::config::Config;
 use crate::flowlog::{self, Mode};
+
+/// Only one server-side dataset run (the Galen demo) may execute at a time:
+/// they use many threads and build large intermediates, so concurrent runs
+/// could exhaust the box. Non-dataset runs are unaffected.
+static DATASET_RUN_SLOT: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(1));
 
 #[derive(Deserialize)]
 pub struct RunRequest {
@@ -62,6 +68,11 @@ struct Options {
     /// report alongside the results.
     #[serde(default)]
     profile: bool,
+    /// Name of a server-side dataset to stage into the run's inputs (its
+    /// `*.csv` files are linked into the facts dir). Used by the Galen demo,
+    /// whose dataset is too large to upload inline.
+    #[serde(default)]
+    dataset: Option<String>,
 }
 
 impl Default for Options {
@@ -69,12 +80,27 @@ impl Default for Options {
         Options {
             workers: default_workers(),
             profile: false,
+            dataset: None,
         }
     }
 }
 
 fn default_workers() -> u32 {
     4
+}
+
+/// Parse `.printsize` lines like `[size][p] t=() size=12345` from a program's
+/// stdout into a `{ relation: count }` JSON map (empty for normal programs).
+fn parse_sizes(stdout: &str) -> serde_json::Map<String, serde_json::Value> {
+    static RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\[size\]\[([^\]]+)\][^\n]*?size=(\d+)").unwrap());
+    let mut out = serde_json::Map::new();
+    for caps in RE.captures_iter(stdout) {
+        if let Ok(n) = caps[2].parse::<u64>() {
+            out.insert(caps[1].to_string(), json!(n));
+        }
+    }
+    out
 }
 
 /// Validate a client-supplied fact filename: a bare basename, no path
@@ -126,8 +152,22 @@ pub async fn run_handler(
                 .into_response();
         }
     }
+    // A requested dataset must be a known directory under `datasets_dir`
+    // (`sanitize_filename` rejects `..`/absolute paths, so no traversal).
+    if let Some(name) = &req.options.dataset {
+        let ok = sanitize_filename(name).is_some_and(|s| cfg.datasets_dir.join(s).is_dir());
+        if !ok {
+            return (StatusCode::BAD_REQUEST, format!("Unknown dataset: {name:?}")).into_response();
+        }
+    }
 
-    let workers = req.options.workers.clamp(1, cfg.max_workers);
+    // Only dataset runs (the Galen demo) may use the higher worker cap.
+    let worker_cap = if req.options.dataset.is_some() {
+        cfg.max_dataset_workers
+    } else {
+        cfg.max_workers
+    };
+    let workers = req.options.workers.clamp(1, worker_cap);
 
     let (tx, rx) = mpsc::channel::<Result<String, Infallible>>(16);
     tokio::spawn(batch_job(cfg, req, workers, tx));
@@ -160,6 +200,25 @@ async fn batch_job(
         }};
     }
 
+    // Dataset runs hold the single shared slot for the whole job (compile +
+    // run + report). A second concurrent dataset run is refused rather than
+    // piling load onto the box.
+    let _dataset_permit = if req.options.dataset.is_some() {
+        match DATASET_RUN_SLOT.try_acquire() {
+            Ok(permit) => Some(permit),
+            Err(_) => {
+                emit!(json!({
+                    "type": "error",
+                    "text": "A Galen run is already in progress on the server. \
+                             Please wait for it to finish and try again.",
+                }));
+                return;
+            }
+        }
+    } else {
+        None
+    };
+
     emit!(json!({"type": "status", "phase": "compiling"}));
     let bin = match flowlog::compile(&cfg, &req.program, Mode::Batch, req.options.profile).await {
         Ok(b) => b,
@@ -185,9 +244,29 @@ async fn batch_job(
     let setup = async {
         fs::create_dir_all(&facts_dir).await?;
         fs::create_dir_all(&out_dir).await?;
+        // Inline facts first — they're real files and take precedence.
         for (name, content) in &req.facts {
             let fname = sanitize_filename(name).expect("validated in run_handler");
             fs::write(facts_dir.join(fname), content).await?;
+        }
+        // Then link the dataset's CSVs (absolute target) for any name an inline
+        // fact didn't already provide. Symlinking avoids copying a large
+        // dataset per request; writing inline facts first ensures we never
+        // write *through* a link back into the shared dataset.
+        if let Some(name) = &req.options.dataset {
+            let safe = sanitize_filename(name).expect("validated in run_handler");
+            let ds = fs::canonicalize(cfg.datasets_dir.join(safe)).await?;
+            let mut entries = fs::read_dir(&ds).await?;
+            while let Some(entry) = entries.next_entry().await? {
+                let src = entry.path();
+                if src.extension().and_then(|e| e.to_str()) != Some("csv") {
+                    continue;
+                }
+                let dest = facts_dir.join(entry.file_name());
+                if !fs::try_exists(&dest).await? {
+                    fs::symlink(&src, &dest).await?;
+                }
+            }
         }
         Ok::<(), std::io::Error>(())
     };
@@ -197,7 +276,7 @@ async fn batch_job(
     }
 
     emit!(json!({"type": "status", "phase": "running"}));
-    let elapsed = match flowlog::run_batch(&cfg, &bin, work.path(), workers).await {
+    let (elapsed, stdout) = match flowlog::run_batch(&cfg, &bin, work.path(), workers).await {
         Ok(d) => d,
         Err(e) => {
             emit!(json!({"type": "error", "text": e.to_string()}));
@@ -234,9 +313,15 @@ async fn batch_job(
         }
     }
 
+    // `.printsize R` relations (e.g. Galen's P/Q) aren't materialized to
+    // `out/`, but the engine prints their cardinalities to stdout. Surface
+    // them so a printsize-only program still shows useful results.
+    let sizes = parse_sizes(&stdout);
+
     emit!(json!({
         "type": "result",
         "results": results,
+        "sizes": sizes,
         "stats": {
             "time_ms": elapsed.as_millis() as u64,
             "tuples": tuples,
