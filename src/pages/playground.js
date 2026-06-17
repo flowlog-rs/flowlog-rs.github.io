@@ -177,7 +177,7 @@ Q(x,e,o) :- Q(x,y,z), R(y,u,e), Q(z,u,o).
   },
 ];
 
-const DEFAULT_SERVER = 'https://palm-enquiry-stakeholders-newbie.trycloudflare.com';
+const DEFAULT_SERVER = 'https://explicitly-saw-volunteers-highways.trycloudflare.com';
 
 // Resolve the backend base URL: `?server=<url>` query param wins (used by
 // `make local` to point at a local backend, e.g. `?server=http://localhost:8088`),
