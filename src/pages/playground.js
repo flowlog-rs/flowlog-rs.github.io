@@ -1,6 +1,7 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import Layout from '@theme/Layout';
 import styles from './playground.module.css';
+import doopProgram from '../doopProgram';
 
 // ─── Example programs ───
 
@@ -141,43 +142,21 @@ MemoryAlias(x, x) :- Assign(x, y).`,
       { name: 'Dereference.csv', csv: '5,1\n6,4' },
     ],
   },
-  // ─── Talk demo: Galen (join order) ───
-  // Server-side dataset (too large to upload inline), 32 threads. Loads the
-  // GOOD join order; live-edit rule 3's body to the bad order
-  //   P(x,z) :- U(w,r,z), Q(x,r,y), P(y,w).   (join U⋈Q first)
-  // and re-Run — same result, far slower. Watch the Time.
+  // ─── Talk demo: Doop points-to analysis on Apache Tomcat ───
+  // Server-side dataset (~389MB of Doop .facts, staged via `make dataset-tomcat`),
+  // 32 threads. A real whole-program points-to analysis: string-typed join keys
+  // are interned automatically (the server adds --str-intern). Watch the Time
+  // and the per-relation .printsize output.
   {
-    name: 'Galen (join order)',
-    dataset: 'galen',
+    name: 'Doop (points-to, Tomcat)',
+    dataset: 'tomcat',
     workers: 32,
     facts: [],
-    program: `.decl P(X: number, Z: number)
-.decl Q(X: number, Y: number, Z: number)
-.decl R(R: number, P: number, E: number)
-.decl C(Y: number, Z: number, W: number)
-.decl U(R: number, Z: number, W: number)
-.decl S(R: number, P: number)
-
-.input P(IO="file", filename="P.csv", delimiter=",")
-.input Q(IO="file", filename="Q.csv", delimiter=",")
-.input R(IO="file", filename="R.csv", delimiter=",")
-.input C(IO="file", filename="C.csv", delimiter=",")
-.input U(IO="file", filename="U.csv", delimiter=",")
-.input S(IO="file", filename="S.csv", delimiter=",")
-
-P(x,z) :- P(x,y), P(y,z).
-Q(x,r,z) :- P(x,y), Q(y,r,z).
-P(x,z) :- P(y,w), U(w,r,z), Q(x,r,y).
-P(x,z) :- C(y,w,z), P(x,w), P(x,y).
-Q(x,q,z) :- Q(x,r,z), S(r,q).
-Q(x,e,o) :- Q(x,y,z), R(y,u,e), Q(z,u,o).
-
-.printsize P
-.printsize Q`,
+    program: doopProgram,
   },
 ];
 
-const DEFAULT_SERVER = 'https://explicitly-saw-volunteers-highways.trycloudflare.com';
+const DEFAULT_SERVER = 'https://believe-marine-appreciated-somewhat.trycloudflare.com';
 
 // Resolve the backend base URL: `?server=<url>` query param wins (used by
 // `make local` to point at a local backend, e.g. `?server=http://localhost:8088`),
@@ -287,28 +266,38 @@ function compareRows(a, b) {
   return a.length - b.length;
 }
 
+// Columns are tab-separated: FlowLog's `.output` files are tab-delimited and
+// the incremental server joins row cells with a tab too. Tab is safe where a
+// comma is not — Doop values like `int(java.lang.Object,java.lang.Object)`
+// contain commas.
+const COL_SEP = '\t';
+
+// Cap the incremental terminal so it stays a fixed, scrollable height.
+const MAX_TERMINAL_LINES = 500;
+
 // Attach a per-row `status` derived from the latest commit's delta and
 // merge in just-removed rows so they can be displayed (faded) at their
-// sorted position. `delta` is `{ added: ["a,b", ...], removed: [...] }`.
+// sorted position. `delta` is `{ added: ["a\tb", ...], removed: [...] }`.
 function enrichRows(rows, delta) {
   const addedSet = new Set((delta?.added) || []);
   const removedRaw = (delta?.removed) || [];
   const out = rows.map(row => ({
     row,
-    status: addedSet.has(row.join(',')) ? 'added' : 'kept',
+    status: addedSet.has(row.join(COL_SEP)) ? 'added' : 'kept',
   }));
   for (const s of removedRaw) {
-    out.push({ row: s.split(','), status: 'removed' });
+    out.push({ row: s.split(COL_SEP), status: 'removed' });
   }
   out.sort((a, b) => compareRows(a.row, b.row));
   return out;
 }
 
-function createSession(server, workers, profile) {
+function createSession(server, workers, profile, dataset) {
   const params = new URLSearchParams({
     workers: String(workers),
     profile: String(!!profile),
   });
+  if (dataset) params.set('dataset', dataset);
 
   const wsUrl = server.replace(/^http/, 'ws') + `/api/session?${params}`;
   const ws = new WebSocket(wsUrl);
@@ -323,7 +312,7 @@ function parseRelations(resultsObj) {
     relations[name] = csv
       .split('\n')
       .filter(line => line.trim() !== '')
-      .map(line => line.split(','));
+      .map(line => line.split(COL_SEP));
   }
   return relations;
 }
@@ -335,12 +324,13 @@ export default function Playground() {
   // Start blank — the user types a program + data, or loads an example.
   const [program, setProgram] = useState('');
   const [facts, setFacts] = useState([]);
-  // Name of the active server-side dataset (e.g. 'galen'), or null for inline
-  // facts. Set by the Galen examples; non-null hides the inline facts editor.
+  // Name of the active server-side dataset (e.g. 'tomcat'), or null for inline
+  // facts. Set by dataset-backed examples; non-null hides the inline facts editor.
   const [dataset, setDataset] = useState(null);
   // Read-only preview ({ files: [{name, rows, preview}], preview_rows }) of the
   // active dataset, fetched from the server.
   const [datasetPreview, setDatasetPreview] = useState(null);
+  const [datasetPreviewError, setDatasetPreviewError] = useState(false);
   const [activeTab, setActiveTab] = useState('program'); // 'program' | 'facts'
 
   // Mode & config
@@ -381,6 +371,13 @@ export default function Playground() {
   const [topRatio, setTopRatio] = useState(60);
   const workspaceRef = useRef(null);
   const splitColumnRef = useRef(null);
+  const gutterRef = useRef(null);
+  const editorWrapRef = useRef(null);
+  const editorMirrorRef = useRef(null);
+  // Per-line rendered heights (px), measured from a hidden mirror that wraps
+  // exactly like the textarea. Lets the line-number gutter stay aligned even
+  // when a long line soft-wraps onto several visual rows.
+  const [lineHeights, setLineHeights] = useState([]);
 
   const startVerticalDrag = useCallback((e) => {
     if (!workspaceRef.current) return;
@@ -436,6 +433,21 @@ export default function Playground() {
     }
   }, [terminalLines]);
 
+  // Measure each program line's wrapped height (from the hidden mirror) so the
+  // gutter line numbers line up with soft-wrapped lines. Re-runs on edits and
+  // on width changes (panel drag / window resize) via a ResizeObserver.
+  useLayoutEffect(() => {
+    const mirror = editorMirrorRef.current;
+    if (!mirror) return;
+    const measure = () => {
+      setLineHeights(Array.from(mirror.children).map(c => c.offsetHeight));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (editorWrapRef.current) ro.observe(editorWrapRef.current);
+    return () => ro.disconnect();
+  }, [program, activeTab]);
+
   // Cleanup WebSocket on unmount
   useEffect(() => {
     return () => {
@@ -448,12 +460,13 @@ export default function Playground() {
   // Fetch the read-only preview of the active server-side dataset.
   useEffect(() => {
     setDatasetPreview(null);
+    setDatasetPreviewError(false);
     if (!dataset) return;
     let cancelled = false;
     fetch(`${server}/api/dataset/${encodeURIComponent(dataset)}`)
-      .then(r => (r.ok ? r.json() : null))
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then(d => { if (!cancelled) setDatasetPreview(d); })
-      .catch(() => { /* leave null — the note still explains the dataset */ });
+      .catch(() => { if (!cancelled) setDatasetPreviewError(true); });
     return () => { cancelled = true; };
   }, [dataset, server]);
 
@@ -476,7 +489,9 @@ export default function Playground() {
       return true;
     }
     if (m.type === 'report_error') {
-      setReportError(m.text || 'Profile report generation failed');
+      // Keep the user-facing text generic — the server's reason can include
+      // internal paths or visualizer diagnostics.
+      setReportError('Profile report could not be generated.');
       setReportPending(false);
       return true;
     }
@@ -579,8 +594,11 @@ export default function Playground() {
           }
         },
       );
-    } catch (err) {
-      setError(err.message || 'Failed to connect to server');
+    } catch {
+      // Network / server-infra failures (the thrown text can be a raw proxy
+      // body or status). Program errors arrive as streamed `error` events
+      // above, so this catch is safe to keep generic.
+      setError('Could not reach the server. Please try again.');
     } finally {
       setRunning(false);
       setPhase(null);
@@ -591,7 +609,12 @@ export default function Playground() {
   // ─── Incremental session ───
 
   const addTerminalLine = useCallback((type, text) => {
-    setTerminalLines(prev => [...prev, { type, text }]);
+    // Keep only the most recent lines so the terminal stays a fixed, scrollable
+    // length instead of growing without bound.
+    setTerminalLines(prev => {
+      const next = [...prev, { type, text }];
+      return next.length > MAX_TERMINAL_LINES ? next.slice(-MAX_TERMINAL_LINES) : next;
+    });
   }, []);
 
   const startSession = useCallback(() => {
@@ -602,13 +625,20 @@ export default function Playground() {
     resetReport();
     hasCommittedRef.current = false;
 
-    addTerminalLine('info', `Connecting to ${server}...`);
+    addTerminalLine('info', 'Connecting to server…');
+
+    // Tracks whether this socket ever connected and whether we've already
+    // surfaced a failure, so a single dropped connection doesn't spam the
+    // terminal with a raw "WebSocket error." + "Session closed." pair.
+    let opened = false;
+    let failed = false;
 
     try {
-      const ws = createSession(server, workers, profile);
+      const ws = createSession(server, workers, profile, dataset);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        opened = true;
         setSessionActive(true);
         addTerminalLine('success', 'Session established.');
         addTerminalLine('info', 'Program loaded. Use begin/put/file/commit/abort commands.');
@@ -638,7 +668,7 @@ export default function Playground() {
           } else if (msg.type === 'result') {
             // Update results pane
             const relations = parseRelations(msg.results);
-            setResults({ relations, stats: msg.stats || {}, deltas: msg.deltas || {} });
+            setResults({ relations, sizes: msg.sizes || {}, stats: msg.stats || {}, deltas: msg.deltas || {} });
             const names = Object.keys(relations);
             if (names.length > 0) {
               // Keep the Profile tab focused if the user is viewing it.
@@ -646,7 +676,17 @@ export default function Playground() {
                 (prev === PROFILE_TAB || (prev && names.includes(prev))) ? prev : names[0]
               );
             }
-            addTerminalLine('success', `Committed at T=${msg.stats?.timestamp ?? '?'}. ${msg.stats?.tuples ?? 0} tuple(s).`);
+            {
+              // Timing is FlowLog's own (shown in the engine log above + the
+              // Time pill), so the summary line just states what happened.
+              const st = msg.stats || {};
+              const tup = `${st.tuples ?? 0} tuple(s)`;
+              if (st.phase === 'preload') {
+                addTerminalLine('success', `Preloaded — ${tup}.`);
+              } else {
+                addTerminalLine('success', `Committed at T=${st.timestamp ?? '?'} — ${tup}.`);
+              }
+            }
             // Auto-refresh the profile report after each commit (once profiling
             // is on and the session has committed). The report updates in the
             // background; the user opens it from the Profile tab when they want.
@@ -663,7 +703,7 @@ export default function Playground() {
             applyReportMessage(msg);
           } else if (msg.type === 'report_error') {
             applyReportMessage(msg);
-            addTerminalLine('error', `Profile: ${msg.text || 'report generation failed'}`);
+            addTerminalLine('error', 'Could not generate the profile report.');
           }
         } catch {
           addTerminalLine('default', event.data);
@@ -671,16 +711,22 @@ export default function Playground() {
       };
 
       ws.onerror = () => {
-        addTerminalLine('error', 'WebSocket error.');
+        if (failed) return;
+        failed = true;
+        addTerminalLine('error', 'Could not connect to the server. Please try again.');
       };
 
       ws.onclose = () => {
         setSessionActive(false);
-        addTerminalLine('muted', 'Session closed.');
         wsRef.current = null;
+        // Only narrate a clean end. A failed connection already reported its
+        // own message; don't follow it with a redundant "closed" line.
+        if (opened && !failed) {
+          addTerminalLine('muted', 'Session ended.');
+        }
       };
-    } catch (err) {
-      setError(err.message);
+    } catch {
+      addTerminalLine('error', 'Could not start the session. Please try again.');
     }
   }, [server, program, facts, workers, profile, addTerminalLine, resetReport, applyReportMessage]);
 
@@ -755,9 +801,26 @@ export default function Playground() {
   };
 
   const renderResultsPane = () => {
-    // The Profile tab appears as soon as a report is requested (batch run, or
-    // an incremental "Profile report" click) — even before it lands.
-    const showProfileTab = reportPending || report || reportError;
+    // A batch run error (compile / syntax / server) is really run output, so
+    // show it here in the results pane — formatted, where results would
+    // appear — rather than as a banner that covers the whole workspace.
+    if (mode === 'batch' && error && !running) {
+      return (
+        <div className={styles.resultErrorPane}>
+          <div className={styles.resultErrorBar}>
+            <span className={styles.resultErrorBarIcon}>&#9888;</span>
+            <span>Run failed</span>
+            <button
+              className={styles.resultErrorDismiss}
+              onClick={() => setError(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+          <pre className={styles.resultErrorBody}>{error}</pre>
+        </div>
+      );
+    }
 
     // Before results arrive, show the server-reported progress steps.
     if (running && mode === 'batch' && !results) {
@@ -767,7 +830,9 @@ export default function Playground() {
         { key: 'done', label: 'Collecting results' },
         ...(profile ? [{ key: 'profiling', label: 'Building profile report' }] : []),
       ];
-      const stepOf = { compiling: 0, compiled: 0, running: 1, done: 2, profiling: 3 };
+      // `compiled` advances past the compiling step so this pane agrees with
+      // the Run button's "Compiled ✓" instead of still showing "Compiling".
+      const stepOf = { compiling: 0, compiled: 1, running: 1, done: 2, profiling: 3 };
       const current = stepOf[phase] ?? 0;
       return (
         <div className={styles.resultEmpty}>
@@ -797,6 +862,21 @@ export default function Playground() {
     const hasSizes = Object.keys(sizes).length > 0;
     const noRelations = !results || Object.keys(results.relations).length === 0;
     if (noRelations && !showProfileTab && !hasSizes) {
+      // Incremental session is live but the initial snapshot hasn't arrived —
+      // the engine is loading the dataset and computing the t=0 state.
+      if (mode === 'incremental' && sessionActive) {
+        return (
+          <div className={styles.resultEmpty}>
+            <div className={styles.resultEmptyIcon}><span className={styles.spinner} /></div>
+            <div className={styles.resultEmptyText}>Preloading dataset…</div>
+            <div className={styles.resultEmptyHint}>
+              Loading the dataset and computing the initial state. For a large
+              dataset (e.g. Tomcat) this can take a few minutes; then use
+              begin / put / commit.
+            </div>
+          </div>
+        );
+      }
       return (
         <div className={styles.resultEmpty}>
           <div className={styles.resultEmptyIcon}>&#9655;</div>
@@ -812,12 +892,6 @@ export default function Playground() {
       );
     }
 
-    const names = results ? Object.keys(results.relations) : [];
-    const onProfileTab = showProfileTab && activeResult === PROFILE_TAB;
-    const currentName = (activeResult && activeResult !== PROFILE_TAB && names.includes(activeResult))
-      ? activeResult
-      : names[0];
-
     // Table data — only computed for the relation view.
     const tableName = (!onProfileTab && currentName) ? currentName : null;
     const rows = tableName ? (results.relations[tableName] || []) : [];
@@ -832,29 +906,6 @@ export default function Playground() {
     };
 
     return (
-      <>
-        <div className={styles.resultsTabs}>
-          {names.map(name => (
-            <button
-              key={name}
-              className={`${styles.resultTab} ${(!onProfileTab && name === currentName) ? styles.resultTabActive : ''}`}
-              onClick={() => setActiveResult(name)}
-            >
-              {name} ({results.relations[name].length})
-            </button>
-          ))}
-          {showProfileTab && (
-            <button
-              key={PROFILE_TAB}
-              className={`${styles.resultTab} ${styles.profileTab} ${onProfileTab ? styles.resultTabActive : ''}`}
-              onClick={() => setActiveResult(PROFILE_TAB)}
-              title="Self-contained profiling report"
-            >
-              <span className={styles.profileTabIcon}>&#9201;</span> Profile
-              {reportPending && <span className={styles.profileTabSpinner} />}
-            </button>
-          )}
-        </div>
         <div className={styles.resultsContent}>
           {onProfileTab ? (
             renderProfileContent()
@@ -885,33 +936,40 @@ export default function Playground() {
               <div className={styles.resultEmptyText}>No tuples in {currentName}</div>
             </div>
           ) : (
-            <table className={styles.resultTable}>
-              <thead>
-                <tr>
-                  {delta && <th className={styles.statusCol} aria-label="status" />}
-                  {Array.from({ length: colCount }).map((_, ci) => (
-                    <th key={ci}>col_{ci}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {enriched.map((entry, ri) => (
-                  <tr key={ri} className={rowClassFor(entry.status)}>
-                    {delta && (
-                      <td className={styles.statusCol}>
-                        {entry.status === 'added' ? '+' : entry.status === 'removed' ? '−' : ''}
-                      </td>
-                    )}
-                    {entry.row.map((val, ci) => (
-                      <td key={ci}>{val}</td>
+            <>
+              <table className={styles.resultTable}>
+                <thead>
+                  <tr>
+                    {delta && <th className={styles.statusCol} aria-label="status" />}
+                    {Array.from({ length: colCount }).map((_, ci) => (
+                      <th key={ci}>col_{ci}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {enriched.map((entry, ri) => (
+                    <tr key={ri} className={rowClassFor(entry.status)}>
+                      {delta && (
+                        <td className={styles.statusCol}>
+                          {entry.status === 'added' ? '+' : entry.status === 'removed' ? '−' : ''}
+                        </td>
+                      )}
+                      {entry.row.map((val, ci) => (
+                        <td key={ci}>{val}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {(results.sizes?.[tableName] ?? 0) > rows.length && (
+                <div className={styles.resultTruncated}>
+                  Showing first {rows.length.toLocaleString()} of{' '}
+                  {results.sizes[tableName].toLocaleString()} tuples — too large to display in full.
+                </div>
+              )}
+            </>
           )}
         </div>
-      </>
     );
   };
 
@@ -926,8 +984,51 @@ export default function Playground() {
     }
   };
 
-  // The server only allows the higher thread count for dataset (Galen) runs.
+  // The server only allows the higher thread count for dataset-backed runs.
   const maxWorkers = dataset ? 32 : 8;
+
+  // Nothing to run when the program editor is empty (whitespace-only). A
+  // dataset alone can't be evaluated without a program, so both the batch
+  // Run and the incremental Start Session button stay disabled until the
+  // user types or loads a program.
+  const canRun = program.trim().length > 0;
+
+  // Shared result-view state — used both by the persistent result-tabs row
+  // (rendered as the right panel's second header row) and by the content pane.
+  const resultNames = results ? Object.keys(results.relations) : [];
+  const showProfileTab = reportPending || report || reportError;
+  const onProfileTab = showProfileTab && activeResult === PROFILE_TAB;
+  const currentName =
+    (activeResult && activeResult !== PROFILE_TAB && resultNames.includes(activeResult))
+      ? activeResult
+      : resultNames[0];
+
+  // The result tabs (one per output relation, plus Profile) live in their own
+  // header row so they align with the left editor toolbar. Empty before a run.
+  const renderResultTabs = () => (
+    <div className={styles.resultsTabs}>
+      {resultNames.map(name => (
+        <button
+          key={name}
+          className={`${styles.resultTab} ${(!onProfileTab && name === currentName) ? styles.resultTabActive : ''}`}
+          onClick={() => setActiveResult(name)}
+        >
+          {name} ({(results.sizes?.[name] ?? results.relations[name].length).toLocaleString()})
+        </button>
+      ))}
+      {showProfileTab && (
+        <button
+          key={PROFILE_TAB}
+          className={`${styles.resultTab} ${styles.profileTab} ${onProfileTab ? styles.resultTabActive : ''}`}
+          onClick={() => setActiveResult(PROFILE_TAB)}
+          title="Self-contained profiling report"
+        >
+          <span className={styles.profileTabIcon}>&#9201;</span> Profile
+          {reportPending && <span className={styles.profileTabSpinner} />}
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <Layout
@@ -956,10 +1057,8 @@ export default function Playground() {
                   setActiveResult(null);
                   setError(null);
                   resetReport();
-                  if (e.target.value === 'incremental') {
-                    // Datasets are batch-only (file inputs + `-F`); drop it.
-                    setDataset(null);
-                  }
+                  // Datasets work in both modes now (the session stages them
+                  // server-side and the engine preloads them), so keep it.
                   if (e.target.value === 'batch' && sessionActive) {
                     stopSession();
                   }
@@ -1009,14 +1108,6 @@ export default function Playground() {
           </div>
         </div>
 
-        {/* ─── Error banner ─── */}
-        {error && (
-          <div className={styles.errorBanner}>
-            <span>{error}</span>
-            <button onClick={() => setError(null)}>Dismiss</button>
-          </div>
-        )}
-
         {/* ─── Workspace ─── */}
         <div className={styles.workspace} ref={workspaceRef}>
           {/* ─── Left: Editor + Facts ─── */}
@@ -1056,16 +1147,39 @@ export default function Playground() {
                     ))}
                   </select>
                 </div>
-                <div className={styles.editorWrap}>
+                <div className={styles.editorWrap} ref={editorWrapRef}>
+                  <div className={styles.gutter} ref={gutterRef} aria-hidden="true">
+                    {(program.length ? program.split('\n') : ['']).map((_, i) => (
+                      <div
+                        key={i}
+                        className={styles.gutterLine}
+                        style={lineHeights[i] ? { height: lineHeights[i] } : undefined}
+                      >
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
                   <textarea
                     className={styles.editor}
                     value={program}
                     onChange={e => setProgram(e.target.value)}
+                    onScroll={e => {
+                      if (gutterRef.current) gutterRef.current.scrollTop = e.target.scrollTop;
+                    }}
                     placeholder="Type a Datalog program here, or pick an example above — then add input facts and Run."
                     spellCheck={false}
                     autoCapitalize="off"
                     autoCorrect="off"
                   />
+                  {/* Hidden mirror: wraps identically to the textarea so we can
+                      measure each line's height for the gutter. */}
+                  <div className={styles.editorMirror} ref={editorMirrorRef} aria-hidden="true">
+                    {(program.length ? program.split('\n') : ['']).map((line, i) => (
+                      <div key={i} className={styles.editorMirrorLine}>
+                        {line === '' ? ' ' : line}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : dataset ? (
@@ -1093,7 +1207,12 @@ export default function Playground() {
                         {f.preview}{f.rows > (datasetPreview.preview_rows ?? 8) ? '\n…' : ''}
                       </pre>
                     </div>
-                  )) : (
+                  )) : datasetPreviewError ? (
+                    <div className={styles.factsEmpty}>
+                      Dataset preview unavailable — couldn&apos;t reach the server.
+                      The dataset still loads on the server when you Run.
+                    </div>
+                  ) : (
                     <div className={styles.factsEmpty}>Loading dataset preview…</div>
                   )}
                 </div>
@@ -1165,7 +1284,8 @@ export default function Playground() {
                 <button
                   className={styles.runBtn}
                   onClick={runBatch}
-                  disabled={running}
+                  disabled={running || !canRun}
+                  title={!canRun ? 'Type or load a program first' : undefined}
                 >
                   {running ? (
                     <><span className={styles.spinner} /> {PHASE_LABELS[phase] || 'Running…'}</>
@@ -1187,7 +1307,12 @@ export default function Playground() {
                     )}
                   </>
                 ) : (
-                  <button className={styles.runBtn} onClick={startSession}>
+                  <button
+                    className={styles.runBtn}
+                    onClick={startSession}
+                    disabled={!canRun}
+                    title={!canRun ? 'Type or load a program first' : undefined}
+                  >
                     <span className={styles.runBtnIcon}>&#9655;</span> Start Session
                   </button>
                 )
@@ -1196,18 +1321,24 @@ export default function Playground() {
               {results?.stats && (
                 <div className={styles.actionStats}>
                   {results.stats.time_ms != null && (
-                    <span className={styles.statItem}>
-                      Time: <span className={styles.statValue}>{results.stats.time_ms}ms</span>
+                    <span className={`${styles.statPill} ${styles.statPillAccent}`}>
+                      <span className={styles.statLabel}>Time</span>
+                      <span className={styles.statValue}>{results.stats.time_ms}<span className={styles.statUnit}>ms</span></span>
                     </span>
                   )}
                   {results.stats.tuples != null && (
-                    <span className={styles.statItem}>
-                      Tuples: <span className={styles.statValue}>{results.stats.tuples}</span>
+                    <span className={styles.statPill}>
+                      <span className={styles.statLabel}>Tuples</span>
+                      <span className={styles.statValue}>{results.stats.tuples}</span>
                     </span>
                   )}
                 </div>
               )}
             </div>
+
+            {/* Second header row: result tabs (aligns with the left editor
+                toolbar). Empty until a run produces output relations. */}
+            {renderResultTabs()}
 
             {mode === 'batch' ? (
               <div className={styles.resultsArea}>
@@ -1245,8 +1376,8 @@ export default function Playground() {
                         </p>
                         <dl className={styles.commandList}>
                           <dt>begin</dt><dd>start a transaction</dd>
-                          <dt>put R a b +1</dt><dd>insert tuple (a, b) into R</dd>
-                          <dt>put R a b -1</dt><dd>delete tuple (a, b) from R</dd>
+                          <dt>put R a,b +1</dt><dd>insert tuple (a, b) into R</dd>
+                          <dt>put R a,b -1</dt><dd>delete tuple (a, b) from R</dd>
                           <dt>commit</dt><dd>commit the transaction and advance time</dd>
                           <dt>abort</dt><dd>rollback the current transaction</dd>
                           <dt>help</dt><dd>show all commands</dd>
@@ -1272,7 +1403,7 @@ export default function Playground() {
                         value={terminalInput}
                         onChange={e => setTerminalInput(e.target.value)}
                         onKeyDown={handleTerminalKeyDown}
-                        placeholder="begin | put R a b +1 | commit | abort | help"
+                        placeholder="begin | put R a,b +1 | commit | abort | help"
                         autoFocus
                       />
                     </div>

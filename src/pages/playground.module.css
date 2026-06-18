@@ -95,7 +95,11 @@
   color: var(--pg-text);
   background-color: var(--pg-bg);
   background-image: var(--pg-page-bg-gradient);
-  min-height: calc(100vh - 60px);
+  /* Definite height (not just min-height) so the flex panels below have a
+     bounded height to scroll against — otherwise the dataset preview / results
+     grow the whole page instead of scrolling internally. */
+  height: calc(100vh - 60px);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -292,6 +296,7 @@
   flex-direction: column;
   flex: 50 0 0;
   min-width: 0;
+  min-height: 0;
 }
 
 /* Vertical drag handle between left and right panels. Doubles as the
@@ -338,6 +343,9 @@
 
 .tabBar {
   display: flex;
+  align-items: stretch;
+  height: 42px;
+  box-sizing: border-box;
   background: var(--pg-toolbar-bg);
   border-bottom: 1px solid var(--pg-toolbar-border);
   flex-shrink: 0;
@@ -380,7 +388,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
+  height: 52px;
+  box-sizing: border-box;
+  padding: 0 12px;
   background: var(--pg-toolbar-bg);
   border-bottom: 1px solid var(--pg-toolbar-border);
   flex-shrink: 0;
@@ -397,21 +407,82 @@
   overflow: hidden;
 }
 
+/* Line-number gutter, pinned to the left of the editor. Its vertical scroll
+   is kept in sync with the textarea via onScroll. Shares the editor's exact
+   font metrics so the numbers line up row-for-row. */
+.gutter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 30px;
+  box-sizing: border-box;
+  padding: 18px 7px 18px 0;
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--pg-mono-font);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: right;
+  color: var(--pg-muted);
+  background: var(--pg-editor-bg);
+  border-right: 1px solid var(--pg-editor-line);
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.6;
+  z-index: 1;
+}
+
+/* Each number's height is set inline from the measured wrapped line height;
+   this is the fallback for the first paint before measurement lands. */
+.gutterLine {
+  min-height: calc(14px * 1.6);
+}
+
 .editor {
   position: absolute;
   inset: 0;
   font-family: var(--pg-mono-font);
   font-size: 14px;
   line-height: 1.6;
-  padding: 18px 20px;
+  /* Left padding clears the line-number gutter (30px) plus a small gap. */
+  padding: 18px 16px 18px 38px;
   margin: 0;
   border: none;
   resize: none;
   background: var(--pg-editor-bg);
   color: var(--pg-editor-text);
   tab-size: 4;
-  white-space: pre;
-  overflow: auto;
+  /* Soft-wrap long lines; the gutter tracks wrapped heights via the mirror. */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Hidden measuring twin of the editor's text area. Same font metrics, same
+   wrap width (left/right match the textarea's padding) so each line wraps to
+   the same height the textarea produces. */
+.editorMirror {
+  position: absolute;
+  top: 18px;
+  left: 38px;
+  right: 16px;
+  box-sizing: border-box;
+  margin: 0;
+  font-family: var(--pg-mono-font);
+  font-size: 14px;
+  line-height: 1.6;
+  tab-size: 4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.editorMirrorLine {
+  min-height: calc(14px * 1.6);
 }
 
 .editor:focus {
@@ -436,7 +507,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
+  height: 52px;
+  box-sizing: border-box;
+  padding: 0 12px;
   background: var(--pg-toolbar-bg);
   border-bottom: 1px solid var(--pg-toolbar-border);
   flex-shrink: 0;
@@ -572,6 +645,7 @@
   flex-direction: column;
   flex: 50 0 0;
   min-width: 0;
+  min-height: 0;
 }
 
 /* Wrapper around resultsArea + horizontal handle + terminal in incremental
@@ -592,7 +666,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  height: 42px;
+  box-sizing: border-box;
+  padding: 0 14px;
   background: var(--pg-toolbar-bg);
   border-bottom: 1px solid var(--pg-toolbar-border);
   flex-shrink: 0;
@@ -647,22 +723,52 @@
 .actionStats {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   font-family: var(--pg-brand-font);
-  font-size: 12px;
+}
+
+.statPill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pg-muted) 10%, transparent);
+}
+
+.statPillAccent {
+  background: color-mix(in srgb, var(--pg-accent-blue) 14%, transparent);
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--pg-muted);
 }
 
-.statItem {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+.statPillAccent .statLabel {
+  color: var(--pg-accent-blue);
 }
 
 .statValue {
+  font-size: 18px;
   font-weight: 700;
+  line-height: 1;
   color: var(--pg-text);
   font-family: var(--pg-mono-font);
+}
+
+.statPillAccent .statValue {
+  color: var(--pg-accent-blue);
+}
+
+.statUnit {
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 1px;
+  opacity: 0.75;
 }
 
 /* ─── Results area ─── */
@@ -677,6 +783,10 @@
 
 .resultsTabs {
   display: flex;
+  align-items: stretch;
+  height: 52px;
+  box-sizing: border-box;
+  padding: 0 4px;
   background: var(--pg-result-header);
   border-bottom: 1px solid var(--pg-toolbar-border);
   overflow-x: auto;
@@ -685,6 +795,8 @@
 
 .resultTab {
   composes: tab;
+  display: flex;
+  align-items: center;
   font-size: 12px;
   padding: 8px 14px;
   white-space: nowrap;
@@ -692,6 +804,17 @@
 
 .resultTabActive {
   composes: tabActive;
+}
+
+/* Footer under a capped result table (e.g. Doop relations with millions of
+   tuples — only the first page is shipped to the browser). */
+.resultTruncated {
+  padding: 10px 16px;
+  font-family: var(--pg-brand-font);
+  font-size: 12px;
+  color: var(--pg-muted);
+  border-top: 1px dashed var(--pg-card-border);
+  background: var(--pg-result-header);
 }
 
 .resultsContent {
@@ -974,20 +1097,35 @@
 
 /* ─── Error / status messages ─── */
 
-.errorBanner {
-  padding: 12px 18px;
+/* Batch run errors render inside the results pane (not a top banner). The
+   header bar names the failure; the body shows the raw compiler output. */
+.resultErrorPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.resultErrorBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
   background: rgba(218, 54, 51, 0.08);
   border-bottom: 1px solid rgba(218, 54, 51, 0.4);
   color: var(--pg-error);
   font-family: var(--pg-brand-font);
   font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
-.errorBanner button {
+.resultErrorBarIcon {
+  font-size: 15px;
+}
+
+.resultErrorDismiss {
   margin-left: auto;
   font-family: var(--pg-brand-font);
   font-size: 12px;
@@ -1001,8 +1139,22 @@
   transition: background-color 0.15s;
 }
 
-.errorBanner button:hover {
+.resultErrorDismiss:hover {
   background-color: rgba(218, 54, 51, 0.12);
+}
+
+/* Compiler errors are multi-line with box-drawing + a caret that only lines
+   up in a monospace font, so preserve whitespace and use the mono face. */
+.resultErrorBody {
+  flex: 1;
+  margin: 0;
+  padding: 16px 18px;
+  overflow: auto;
+  font-family: var(--pg-mono-font);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: var(--pg-error);
 }
 
 /* ─── Loading spinner ─── */
@@ -1213,6 +1365,9 @@
   border-radius: 8px;
   background: var(--pg-card-bg);
   overflow: hidden;
+  /* Keep each box at its natural height; the list (`.datasetFiles`) scrolls.
+     Without this, the flex column squeezes all boxes into thin lines. */
+  flex-shrink: 0;
 }
 
 .datasetFileHead {

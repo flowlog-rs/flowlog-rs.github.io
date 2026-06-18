@@ -10,6 +10,11 @@
 # Runtime state for Makefile-managed services (pid files, logs)
 /.run/
 
+# Large server-side dataset (Doop facts for Apache Tomcat, ~389MB). Fetched on
+# the node with `make dataset-tomcat` rather than committed. Small datasets
+# (e.g. Galen) stay in the repo.
+/server/datasets/tomcat/
+
 # Generated files
 .docusaurus
 .cache-loader
@@ -26,3 +31,6 @@ yarn-debug.log*
 yarn-error.log*
 
 .vercel
+
+# Local Claude Code state
+/.claude/

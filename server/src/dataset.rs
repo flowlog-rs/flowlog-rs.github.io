@@ -13,6 +13,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
 use tokio::fs;
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::batch::sanitize_filename;
 use crate::config::Config;
@@ -44,21 +45,53 @@ pub async fn dataset_handler(
     let mut files: Vec<(String, serde_json::Value)> = Vec::new();
     while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("csv") {
+        // Galen ships CSVs; Doop/Tomcat ships tab-delimited .facts.
+        let ext = path.extension().and_then(|e| e.to_str());
+        if ext != Some("csv") && ext != Some("facts") {
             continue;
         }
         let fname = entry.file_name().to_string_lossy().into_owned();
-        let content = fs::read_to_string(&path).await.unwrap_or_default();
-        let rows: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
-        let preview = rows
+
+        // Read only the first PREVIEW_ROWS lines (plus one extra to detect
+        // "there's more"). Tomcat's facts are hundreds of MB total, so we must
+        // never slurp whole files just to preview them. The total row count is
+        // estimated from the file size and the sampled lines' average length.
+        let Ok(file) = fs::File::open(&path).await else { continue };
+        let total_bytes = file.metadata().await.map(|m| m.len()).unwrap_or(0);
+        let mut lines = BufReader::new(file).lines();
+        let mut sample: Vec<String> = Vec::with_capacity(PREVIEW_ROWS + 1);
+        let mut sample_bytes: u64 = 0;
+        while sample.len() <= PREVIEW_ROWS {
+            match lines.next_line().await {
+                Ok(Some(line)) => {
+                    if line.trim().is_empty() {
+                        continue;
+                    }
+                    sample_bytes += line.len() as u64 + 1; // +1 for the newline
+                    sample.push(line);
+                }
+                _ => break,
+            }
+        }
+
+        let fully_read = sample.len() <= PREVIEW_ROWS;
+        let rows = if fully_read {
+            sample.len() as u64
+        } else if sample_bytes > 0 {
+            // Approximate: total size / average sampled line length.
+            (total_bytes * sample.len() as u64 / sample_bytes).max(sample.len() as u64)
+        } else {
+            0
+        };
+        let preview = sample
             .iter()
             .take(PREVIEW_ROWS)
-            .copied()
+            .cloned()
             .collect::<Vec<_>>()
             .join("\n");
         files.push((
             fname.clone(),
-            json!({ "name": fname, "rows": rows.len(), "preview": preview }),
+            json!({ "name": fname, "rows": rows, "preview": preview }),
         ));
     }
     files.sort_by(|a, b| a.0.cmp(&b.0));

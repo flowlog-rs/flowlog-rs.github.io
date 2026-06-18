@@ -111,16 +111,30 @@ pub async fn compile(
         Mode::Batch => {
             cmd.args(["-F", "facts", "-D", "out"]);
         }
-        // Incremental output streams to the interactive shell; IO="file"
-        // inputs resolve against the run-time cwd.
+        // Incremental writes per-timestamp delta files to `out/` (Rel_t1.csv =
+        // preload state, Rel_tN.csv = commit N's delta) — far cheaper than
+        // streaming millions of tuples over stdout. IO="file" inputs resolve
+        // against the run-time cwd.
         Mode::Incremental => {
-            cmd.args(["-F", ".", "-D", "-"]);
+            cmd.args(["-F", ".", "-D", "out"]);
         }
     }
     if profile {
         // Bakes timely/differential logging into the binary; at run time it
         // emits `program_log/{ops.json,time,memory}` (see `PROFILE_LOG_DIR`).
         cmd.arg("-P");
+    }
+    // String-heavy workloads (e.g. the Doop points-to analysis on Tomcat) join
+    // almost entirely on string columns; interning them as compact integer
+    // keys is dramatically faster and lighter. Auto-enable whenever the program
+    // declares any string/symbol column. Derived purely from the program text,
+    // so it stays consistent with the compile cache key.
+    if program.contains(":string")
+        || program.contains(": string")
+        || program.contains(":symbol")
+        || program.contains(": symbol")
+    {
+        cmd.arg("--str-intern");
     }
 
     let output = run_capture(cmd, cfg.compile_timeout)

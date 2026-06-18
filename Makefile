@@ -47,8 +47,8 @@ CLOUDFLARED_URL  := https://github.com/cloudflare/cloudflared/releases/latest/do
 PORT             ?= 8080
 BIND_ADDR        ?= 0.0.0.0:$(PORT)
 ALLOWED_ORIGINS  ?= *
-# Server-side datasets (the Galen demo lives here). Longer run timeout so the
-# heavier Galen join orders finish instead of hitting the default 30s cap.
+# Server-side datasets (the Doop/Tomcat demo lives here). Longer run timeout so
+# heavier whole-program analyses finish instead of hitting the default 30s cap.
 DATASETS_DIR     ?= $(SERVER_DIR)/datasets
 RUN_TIMEOUT_SECS ?= 120
 
@@ -70,7 +70,23 @@ TUNNEL_URL_RE    := https://[a-z0-9-]+\.trycloudflare\.com
 
 .PHONY: help all setup env flowlog profile-viz server cloudflared \
         start stop status url logs run tunnel local \
-        update clean clean-flowlog clean-profile-viz
+        update clean clean-flowlog clean-profile-viz dataset-tomcat doop
+
+# Regenerate the playground's Doop program module (src/doopProgram.js) from the
+# editable src/doop.dl. Run after editing the program.
+doop:
+	@bash scripts/gen-doop.sh
+
+# --- large datasets (fetched, not committed) ------------------------------
+TOMCAT_DIR  := $(DATASETS_DIR)/tomcat
+TOMCAT_URL  ?= https://huggingface.co/datasets/NemoYuu/flowlog_benchmark/resolve/main/dataset/csv/tomcat.zip
+# Only the .facts inputs that doop.dl actually reads (keeps it ~389MB, not 582).
+TOMCAT_FACTS := ActualParam ApplicationClass ArrayType AssignCast AssignHeapAllocation \
+  AssignLocal AssignReturnValue ClassType ComponentType DirectSuperclass DirectSuperinterface \
+  Field FormalParam InterfaceType LoadArrayIndex LoadInstanceField LoadStaticField MainClass \
+  Method Method-Modifier NormalHeap Return SpecialMethodInvocation StaticMethodInvocation \
+  StoreArrayIndex StoreInstanceField StoreStaticField StringConstant ThisVar Var-DeclaringMethod \
+  Var-Type VirtualMethodInvocation
 
 help:
 	@echo 'FlowLog Playground Server — make targets:'
@@ -90,6 +106,7 @@ help:
 	@echo '  make profile-viz     only build flowlog-profile-viz'
 	@echo '  make server          only build the playground server'
 	@echo '  make cloudflared     only download cloudflared'
+	@echo '  make dataset-tomcat  fetch the Doop/Tomcat dataset (~389MB, not in git)'
 	@echo '  make update          git-pull + rebuild'
 	@echo '  make clean           remove server/target'
 	@echo '  make clean-flowlog   wipe the flowlog checkout entirely'
@@ -107,7 +124,7 @@ help:
 
 all: start
 
-setup: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN)
+setup: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN) $(TOMCAT_DIR)/MainClass.facts
 
 env: $(ENV_MARKER)
 flowlog: $(FLOWLOG_BIN)
@@ -154,11 +171,29 @@ $(CLOUDFLARED_BIN):
 	curl -fSL --output $(CLOUDFLARED_BIN) $(CLOUDFLARED_URL)
 	chmod +x $(CLOUDFLARED_BIN)
 
+# 6. Fetch the Doop/Tomcat dataset (~389MB of .facts). Too large to commit, so
+#    it's downloaded from HuggingFace and only the inputs doop.dl reads are
+#    kept. Idempotent: skips if the dataset already looks complete.
+dataset-tomcat: $(TOMCAT_DIR)/MainClass.facts
+$(TOMCAT_DIR)/MainClass.facts:
+	@echo '==> fetching Doop/Tomcat dataset → $(TOMCAT_DIR)'
+	@mkdir -p $(TOMCAT_DIR)
+	@tmp=$$(mktemp -d); \
+	  echo '    downloading tomcat.zip (~37MB)...'; \
+	  curl -fSL --output $$tmp/tomcat.zip $(TOMCAT_URL); \
+	  echo '    extracting $(words $(TOMCAT_FACTS)) input files...'; \
+	  for f in $(TOMCAT_FACTS); do \
+	    unzip -o -j $$tmp/tomcat.zip "tomcat/$$f.facts" -d $(TOMCAT_DIR) >/dev/null; \
+	  done; \
+	  rm -rf $$tmp; \
+	  cp $(FLOWLOG_DIR)/example/program_analysis/doop.dl $(TOMCAT_DIR)/doop.dl 2>/dev/null || true; \
+	  echo "    done — $$(du -sh $(TOMCAT_DIR) | cut -f1) in $(TOMCAT_DIR)"
+
 # ─── Detached service control ───────────────────────────────────────────────
 
 # Start backend + cloudflared in the background (idempotent: skips anything
 # already running) and print the HTTPS URL when the tunnel comes up.
-start: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN)
+start: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN) $(TOMCAT_DIR)/MainClass.facts
 	@mkdir -p $(RUN_DIR)
 	@if [ -f $(BACKEND_PID) ] && kill -0 $$(cat $(BACKEND_PID)) 2>/dev/null; then \
 	  echo "==> backend already running (pid $$(cat $(BACKEND_PID)))"; \

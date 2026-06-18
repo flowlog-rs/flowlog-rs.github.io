@@ -40,6 +40,7 @@ use regex::Regex;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::fs;
+use tokio::io::BufReader;
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -91,6 +92,58 @@ fn default_workers() -> u32 {
 
 /// Parse `.printsize` lines like `[size][p] t=() size=12345` from a program's
 /// stdout into a `{ relation: count }` JSON map (empty for normal programs).
+/// Max rows per output relation streamed to the browser. The true total is
+/// reported separately (in `sizes`) so the UI can show "first N of M".
+const MAX_RESULT_ROWS: usize = 100;
+
+/// Capture the first `max_rows` lines of an output file for display and count
+/// its total rows — via a byte-level scan, so multi-million-row relations
+/// (e.g. Doop's VarPointsTo) are counted in one fast streaming pass instead of
+/// allocating a String per line. Rows are assumed newline-terminated with no
+/// blank lines (FlowLog's output format).
+async fn read_capped(
+    path: &std::path::Path,
+    max_rows: usize,
+) -> std::io::Result<(String, usize)> {
+    use tokio::io::AsyncReadExt;
+    let file = fs::File::open(path).await?;
+    let mut reader = BufReader::with_capacity(256 * 1024, file);
+    let mut buf = [0u8; 64 * 1024];
+    let mut total = 0usize;
+    let mut preview: Vec<u8> = Vec::new();
+    let mut preview_lines = 0usize;
+    let mut capturing = true;
+    let mut last: u8 = b'\n';
+    loop {
+        let n = reader.read(&mut buf).await?;
+        if n == 0 {
+            break;
+        }
+        let chunk = &buf[..n];
+        last = chunk[n - 1];
+        for &b in chunk {
+            if b == b'\n' {
+                total += 1;
+            }
+            if capturing {
+                preview.push(b);
+                if b == b'\n' {
+                    preview_lines += 1;
+                    if preview_lines >= max_rows {
+                        capturing = false;
+                    }
+                }
+            }
+        }
+    }
+    // A final line with no trailing newline still counts as a row.
+    if last != b'\n' && (total > 0 || !preview.is_empty()) {
+        total += 1;
+    }
+    let preview = String::from_utf8_lossy(&preview).trim_end().to_string();
+    Ok((preview, total))
+}
+
 fn parse_sizes(stdout: &str) -> serde_json::Map<String, serde_json::Value> {
     static RE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\[size\]\[([^\]]+)\][^\n]*?size=(\d+)").unwrap());
@@ -259,7 +312,10 @@ async fn batch_job(
             let mut entries = fs::read_dir(&ds).await?;
             while let Some(entry) = entries.next_entry().await? {
                 let src = entry.path();
-                if src.extension().and_then(|e| e.to_str()) != Some("csv") {
+                // Stage data files only. CSV (Galen) and .facts (Doop/Tomcat)
+                // are linked; a stray .dl or README in the dataset dir is not.
+                let ext = src.extension().and_then(|e| e.to_str());
+                if ext != Some("csv") && ext != Some("facts") {
                     continue;
                 }
                 let dest = facts_dir.join(entry.file_name());
@@ -285,8 +341,12 @@ async fn batch_job(
     };
     emit!(json!({"type": "status", "phase": "done"}));
 
-    // Every `.csv` under `out/` is an output relation.
+    // Every `.csv` under `out/` is an output relation. A whole-program analysis
+    // (e.g. Doop on Tomcat) can emit millions of tuples per relation, far too
+    // many to ship to the browser, so we send only the first MAX_RESULT_ROWS of
+    // each and report the true total separately (in `sizes`).
     let mut results = serde_json::Map::new();
+    let mut sizes = serde_json::Map::new();
     let mut tuples = 0usize;
     match fs::read_dir(&out_dir).await {
         Ok(mut entries) => {
@@ -301,9 +361,10 @@ async fn batch_job(
                     continue;
                 };
                 let relation = fname.strip_suffix(".csv").unwrap_or(fname).to_string();
-                if let Ok(content) = fs::read_to_string(&path).await {
-                    tuples += content.lines().filter(|l| !l.trim().is_empty()).count();
-                    results.insert(relation, json!(content));
+                if let Ok((preview, total)) = read_capped(&path, MAX_RESULT_ROWS).await {
+                    tuples += total;
+                    results.insert(relation.clone(), json!(preview));
+                    sizes.insert(relation, json!(total));
                 }
             }
         }
@@ -313,10 +374,12 @@ async fn batch_job(
         }
     }
 
-    // `.printsize R` relations (e.g. Galen's P/Q) aren't materialized to
-    // `out/`, but the engine prints their cardinalities to stdout. Surface
-    // them so a printsize-only program still shows useful results.
-    let sizes = parse_sizes(&stdout);
+    // `.printsize R` relations aren't materialized to `out/`, but the engine
+    // prints their cardinalities to stdout. Merge those in (without clobbering
+    // a real per-relation count) so printsize-only programs still show sizes.
+    for (rel, n) in parse_sizes(&stdout) {
+        sizes.entry(rel).or_insert(n);
+    }
 
     emit!(json!({
         "type": "result",
