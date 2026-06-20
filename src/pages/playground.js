@@ -156,7 +156,7 @@ MemoryAlias(x, x) :- Assign(x, y).`,
   },
 ];
 
-const DEFAULT_SERVER = 'https://believe-marine-appreciated-somewhat.trycloudflare.com';
+const DEFAULT_SERVER = 'https://encyclopedia-unions-newfoundland-finite.trycloudflare.com';
 
 // Resolve the backend base URL: `?server=<url>` query param wins (used by
 // `make local` to point at a local backend, e.g. `?server=http://localhost:8088`),
