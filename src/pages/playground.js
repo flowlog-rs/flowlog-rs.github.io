@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import Layout from '@theme/Layout';
 import styles from './playground.module.css';
 import doopProgram from '../doopProgram';
@@ -86,7 +86,8 @@ Sg(x, y) :- Arc(a, x), Sg(a, b), Arc(b, y).`,
   },
   {
     name: 'K-Core Decomposition',
-    program: `// 2-core: iteratively peel vertices whose degree drops below 2.
+    program: `// 3-core: iteratively peel vertices whose degree drops below 3.
+// edge.csv is an undirected graph (each edge appears in both directions).
 // Uses an explicit fixpoint block (extended mode, batch only).
 .decl edge(x: int32, y: int32)
 .input edge(IO="file", filename="edge.csv", delimiter=",")
@@ -103,15 +104,16 @@ fixpoint {
 
     active_edge(x, y) :- edge(x, y), !removed(x), !removed(y).
     degree(x, count(y)) :- active_edge(x, y).
-    removed(x) :- degree(x, d), d < 2.
+    removed(x) :- degree(x, d), d < 3.
 }
 
 .output active_edge
 .output removed`,
     facts: [
-      // Undirected (both directions): a 4-cycle 1-2-3-4 plus a pendant 4-5.
-      // Vertex 5 peels off; the 2-core is the cycle.
-      { name: 'edge.csv', csv: '1,2\n2,1\n2,3\n3,2\n3,4\n4,3\n4,1\n1,4\n4,5\n5,4' },
+      // Undirected: a dense core {1,2,3,4} (each node degree 3) plus
+      // attachments that peel — node 5 has one edge, nodes 6 and 7 have two.
+      // The 3-core is the {1,2,3,4} clique.
+      { name: 'edge.csv', csv: '1,2\n2,1\n1,3\n3,1\n1,4\n4,1\n2,3\n3,2\n2,4\n4,2\n3,4\n4,3\n1,5\n5,1\n2,6\n6,2\n3,6\n6,3\n1,7\n7,1\n4,7\n7,4' },
     ],
   },
   {
@@ -233,6 +235,72 @@ function parseRanges(s) {
       return a <= b ? [a, b] : [b, a];
     })
     .filter(Boolean);
+}
+
+// Small graph visualization for the k-core example. Lays the nodes out on a
+// circle and, once `activeNodes` is known (after a run), highlights the nodes
+// that survive in the core and dims the removed ones.
+function GraphView({ edges, activeNodes, coreK }) {
+  const { nodes, lines, pos } = useMemo(() => {
+    const set = new Set();
+    edges.forEach(([a, b]) => { set.add(a); set.add(b); });
+    const nodes = [...set].sort((a, b) => {
+      const na = Number(a), nb = Number(b);
+      return Number.isFinite(na) && Number.isFinite(nb) ? na - nb : String(a).localeCompare(String(b));
+    });
+    const N = Math.max(nodes.length, 1);
+    const cx = 130, cy = 130, R = 95;
+    const pos = {};
+    nodes.forEach((n, i) => {
+      const ang = -Math.PI / 2 + (2 * Math.PI * i) / N;
+      pos[n] = { x: cx + R * Math.cos(ang), y: cy + R * Math.sin(ang) };
+    });
+    const seen = new Set();
+    const lines = [];
+    edges.forEach(([a, b]) => {
+      if (a === b) return;
+      const k = a < b ? `${a} ${b}` : `${b} ${a}`;
+      if (!seen.has(k)) { seen.add(k); lines.push([a, b]); }
+    });
+    return { nodes, lines, pos };
+  }, [edges]);
+
+  if (!nodes.length) return null;
+
+  const nodeClass = (n) =>
+    !activeNodes ? styles.graphNode
+      : activeNodes.has(n) ? styles.graphNodeActive
+      : styles.graphNodeRemoved;
+  const edgeKept = (a, b) => activeNodes && activeNodes.has(a) && activeNodes.has(b);
+
+  return (
+    <div className={styles.graphView}>
+      <div className={styles.graphTitle}>
+        Graph{activeNodes ? ` — ${coreK ? `${coreK}-core` : 'core'} highlighted` : ''}
+      </div>
+      <svg viewBox="0 0 260 260" className={styles.graphSvg}>
+        {lines.map(([a, b], i) => (
+          <line
+            key={i}
+            x1={pos[a].x} y1={pos[a].y} x2={pos[b].x} y2={pos[b].y}
+            className={`${styles.graphEdge} ${activeNodes && !edgeKept(a, b) ? styles.graphEdgeDim : ''}`}
+          />
+        ))}
+        {nodes.map((n) => (
+          <g key={n}>
+            <circle cx={pos[n].x} cy={pos[n].y} r="13" className={nodeClass(n)} />
+            <text
+              x={pos[n].x} y={pos[n].y}
+              className={styles.graphLabel}
+              textAnchor="middle" dominantBaseline="central"
+            >
+              {n}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
 }
 
 // Sentinel result-tab id for the self-contained profile report (vs. the
@@ -1190,6 +1258,31 @@ export default function Playground() {
       ? activeResult
       : resultNames[0];
 
+  // k-core graph visualization: parse the `edge` input fact into edges, and the
+  // surviving nodes from the `active_edge` results (so the figure can highlight
+  // the 2-core). Only present when an `edge`/`edge.csv` fact exists.
+  const edgeFact = facts.find((f) => /^edge(\.csv)?$/i.test((f.name || '').trim()));
+  const graphEdges = useMemo(() => {
+    if (!edgeFact) return [];
+    return edgeFact.csv
+      .split('\n').map((l) => l.trim()).filter(Boolean)
+      .map((l) => l.split(',').map((s) => s.trim()))
+      .filter((r) => r.length >= 2 && r[0] && r[1])
+      .map((r) => [r[0], r[1]]);
+  }, [edgeFact]);
+  const graphActiveNodes = useMemo(() => {
+    const ae = results?.relations?.active_edge;
+    if (!ae) return null;
+    const s = new Set();
+    ae.forEach((row) => row.forEach((v) => s.add(v)));
+    return s;
+  }, [results]);
+  // k from the peeling threshold (`d < k`) so the graph title says "3-core".
+  const coreK = useMemo(() => {
+    const m = program.match(/d\s*<\s*(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+  }, [program]);
+
   // The result tabs (one per output relation, plus Profile) live in their own
   // header row so they align with the left editor toolbar. Empty before a run.
   const renderResultTabs = () => (
@@ -1460,6 +1553,9 @@ export default function Playground() {
                         />
                       </div>
                     ))}
+                    {graphEdges.length > 0 && (
+                      <GraphView edges={graphEdges} activeNodes={graphActiveNodes} coreK={coreK} />
+                    )}
                   </div>
                 )}
               </div>

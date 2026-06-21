@@ -666,6 +666,74 @@
   opacity: 0.55;
 }
 
+/* ─── k-core graph visualization ─── */
+
+.graphView {
+  margin-top: 6px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--pg-card-border);
+  border-radius: 8px;
+  background: var(--pg-card-bg);
+}
+
+.graphTitle {
+  font-family: var(--pg-brand-font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pg-muted);
+  margin-bottom: 6px;
+}
+
+.graphSvg {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+  height: auto;
+}
+
+.graphEdge {
+  stroke: var(--pg-muted);
+  stroke-width: 1.6;
+  opacity: 0.5;
+}
+
+.graphEdgeDim {
+  opacity: 0.12;
+}
+
+/* Node states: neutral (pre-run), kept in the core, or peeled/removed. */
+.graphNode {
+  fill: var(--pg-card-bg);
+  stroke: var(--pg-muted);
+  stroke-width: 1.6;
+}
+
+.graphNodeActive {
+  fill: var(--pg-accent-blue);
+  stroke: var(--pg-accent-blue);
+}
+
+.graphNodeRemoved {
+  fill: var(--pg-card-bg);
+  stroke: var(--pg-muted);
+  stroke-width: 1.6;
+  stroke-dasharray: 3 2;
+  opacity: 0.45;
+}
+
+.graphLabel {
+  font-family: var(--pg-mono-font);
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--pg-text);
+  pointer-events: none;
+}
+
+.graphNodeActive + .graphLabel {
+  fill: #fff;
+}
+
 .factsEmpty {
   flex: 1;
   display: flex;
