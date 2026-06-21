@@ -171,6 +171,25 @@ function resolveServer() {
   }
 }
 
+const slugify = (s) =>
+  String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-+|-+$)/g, '');
+
+// Resolve an `?example=` value to an EXAMPLES index. Accepts a 0-based index,
+// an exact name slug (e.g. `doop-points-to-tomcat`), or a substring/slug of the
+// name (e.g. `doop`, `reachability`). Returns -1 if nothing matches.
+function resolveExampleIndex(q) {
+  if (q == null) return -1;
+  const t = String(q).trim();
+  if (/^\d+$/.test(t)) {
+    const n = parseInt(t, 10);
+    return n >= 0 && n < EXAMPLES.length ? n : -1;
+  }
+  const qs = slugify(t);
+  const exact = EXAMPLES.findIndex((ex) => slugify(ex.name) === qs);
+  if (exact >= 0) return exact;
+  return EXAMPLES.findIndex((ex) => slugify(ex.name).includes(qs));
+}
+
 // Sentinel result-tab id for the self-contained profile report (vs. the
 // per-relation output tabs, which are keyed by relation name).
 const PROFILE_TAB = '__profile__';
@@ -513,6 +532,41 @@ export default function Playground() {
     setError(null);
     resetReport();
   }, [resetReport]);
+
+  // Deep-link from URL query params, once on mount. Pre-loads the playground
+  // into a ready-to-run state but never auto-runs. Supported params:
+  //   ?example=<index|name|slug>   load a program (e.g. doop, reachability)
+  //   ?mode=batch|incremental
+  //   ?profile=true|false
+  //   ?workers=<n>
+  //   ?tab=program|facts
+  //   ?server=<url>                (handled by resolveServer)
+  // e.g. /playground?example=doop&mode=incremental&profile=true
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let params;
+    try {
+      params = new URLSearchParams(window.location.search);
+    } catch {
+      return;
+    }
+    const idx = resolveExampleIndex(params.get('example') ?? params.get('program'));
+    if (idx >= 0) loadExample(idx);
+
+    const m = params.get('mode');
+    if (m === 'batch' || m === 'incremental') setMode(m);
+
+    const p = params.get('profile');
+    if (p != null) setProfile(p === 'true' || p === '1');
+
+    const w = parseInt(params.get('workers'), 10);
+    if (!Number.isNaN(w)) setWorkers(Math.min(32, Math.max(1, w)));
+
+    const tab = params.get('tab');
+    if (tab === 'program' || tab === 'facts') setActiveTab(tab);
+    // Run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── Facts management ───
 
