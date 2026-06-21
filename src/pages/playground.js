@@ -85,6 +85,36 @@ Sg(x, y) :- Arc(a, x), Sg(a, b), Arc(b, y).`,
     ],
   },
   {
+    name: 'K-Core Decomposition',
+    program: `// 2-core: iteratively peel vertices whose degree drops below 2.
+// Uses an explicit fixpoint block (extended mode, batch only).
+.decl edge(x: int32, y: int32)
+.input edge(IO="file", filename="edge.csv", delimiter=",")
+
+.decl active_edge(x: int32, y: int32)
+.decl degree(x: int32, y: int32)
+.decl removed(x: int32)
+
+active_edge(x, y) :- edge(x, y).
+
+fixpoint {
+    .iterative active_edge
+    .iterative degree
+
+    active_edge(x, y) :- edge(x, y), !removed(x), !removed(y).
+    degree(x, count(y)) :- active_edge(x, y).
+    removed(x) :- degree(x, d), d < 2.
+}
+
+.output active_edge
+.output removed`,
+    facts: [
+      // Undirected (both directions): a 4-cycle 1-2-3-4 plus a pendant 4-5.
+      // Vertex 5 peels off; the 2-core is the cycle.
+      { name: 'edge.csv', csv: '1,2\n2,1\n2,3\n3,2\n3,4\n4,3\n4,1\n1,4\n4,5\n5,4' },
+    ],
+  },
+  {
     name: 'Pointer Analysis (Andersen)',
     program: `.decl AddressOf(y: int32, x: int32)
 .input AddressOf(IO="file", filename="AddressOf.csv", delimiter=",")
@@ -156,7 +186,7 @@ MemoryAlias(x, x) :- Assign(x, y).`,
   },
 ];
 
-const DEFAULT_SERVER = 'https://encyclopedia-unions-newfoundland-finite.trycloudflare.com';
+const DEFAULT_SERVER = 'https://referred-shipments-waiting-focuses.trycloudflare.com';
 
 // Resolve the backend base URL: `?server=<url>` query param wins (used by
 // `make local` to point at a local backend, e.g. `?server=http://localhost:8088`),
@@ -188,6 +218,21 @@ function resolveExampleIndex(q) {
   const exact = EXAMPLES.findIndex((ex) => slugify(ex.name) === qs);
   if (exact >= 0) return exact;
   return EXAMPLES.findIndex((ex) => slugify(ex.name).includes(qs));
+}
+
+// Parse `"569-574,600"` into 1-based [[start,end], ...] line ranges.
+function parseRanges(s) {
+  if (!s) return [];
+  return String(s)
+    .split(',')
+    .map((part) => {
+      const m = part.trim().match(/^(\d+)(?:-(\d+))?$/);
+      if (!m) return null;
+      const a = parseInt(m[1], 10);
+      const b = m[2] ? parseInt(m[2], 10) : a;
+      return a <= b ? [a, b] : [b, a];
+    })
+    .filter(Boolean);
 }
 
 // Sentinel result-tab id for the self-contained profile report (vs. the
@@ -393,6 +438,12 @@ export default function Playground() {
   const gutterRef = useRef(null);
   const editorWrapRef = useRef(null);
   const editorMirrorRef = useRef(null);
+  const editorRef = useRef(null);
+  const highlightInnerRef = useRef(null);
+  const selectionAnchorRef = useRef(null); // gutter shift-select anchor line
+  // Highlighted program line ranges (1-based), e.g. [[569, 574]]. Set from a
+  // ?highlight= param or an example's `highlight` config.
+  const [highlight, setHighlight] = useState([]);
   // Per-line rendered heights (px), measured from a hidden mirror that wraps
   // exactly like the textarea. Lets the line-number gutter stay aligned even
   // when a long line soft-wraps onto several visual rows.
@@ -467,6 +518,84 @@ export default function Playground() {
     return () => ro.disconnect();
   }, [program, activeTab]);
 
+  // Position the highlight bands from the gutter's real DOM line positions
+  // (which are aligned with the wrapped text), so they can't drift from summed
+  // heights. Keeps the gutter scroll in sync and optionally scrolls a range
+  // into view (only when off-screen, so clicking a visible line doesn't jump).
+  const positionHighlights = useCallback((scrollIntoView) => {
+    const ed = editorRef.current;
+    const g = gutterRef.current;
+    if (!ed || !g || activeTab !== 'program') return;
+    if (scrollIntoView && highlight.length) {
+      const first = g.children[highlight[0][0] - 1];
+      if (first) {
+        const top = first.offsetTop;
+        const bottom = top + first.offsetHeight;
+        if (top < ed.scrollTop || bottom > ed.scrollTop + ed.clientHeight) {
+          ed.scrollTop = Math.max(0, top - 60);
+        }
+      }
+    }
+    g.scrollTop = ed.scrollTop;
+    const host = highlightInnerRef.current;
+    if (!host) return;
+    const st = g.scrollTop;
+    highlight.forEach((range, i) => {
+      const a = g.children[range[0] - 1];
+      const b = g.children[range[1] - 1];
+      const band = host.children[i];
+      if (!a || !b || !band) return;
+      band.style.top = `${a.offsetTop - st}px`;
+      band.style.height = `${b.offsetTop + b.offsetHeight - a.offsetTop}px`;
+    });
+  }, [highlight, activeTab]);
+
+  // Re-position whenever the highlight or measured line heights change.
+  useEffect(() => {
+    positionHighlights(true);
+  }, [highlight, lineHeights, activeTab, positionHighlights]);
+
+  // Write the current highlight to the URL (?highlight=) without reloading, so
+  // a selection is shareable — GitHub-style line linking.
+  const updateHighlightUrl = useCallback((range) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      if (range) {
+        const v = range[0] === range[1] ? `${range[0]}` : `${range[0]}-${range[1]}`;
+        url.searchParams.set('highlight', v);
+      } else {
+        url.searchParams.delete('highlight');
+      }
+      window.history.replaceState(null, '', url);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Click a gutter line number to select it; shift-click to extend a range;
+  // click the sole selected line again to clear.
+  const selectLine = useCallback((lineNum, shiftKey) => {
+    const anchor = selectionAnchorRef.current;
+    let range;
+    if (shiftKey && anchor != null) {
+      range = [Math.min(anchor, lineNum), Math.max(anchor, lineNum)];
+    } else if (
+      highlight.length === 1 && highlight[0][0] === lineNum && highlight[0][1] === lineNum
+    ) {
+      // Clicking the sole selected line again clears the selection.
+      selectionAnchorRef.current = null;
+      setHighlight([]);
+      updateHighlightUrl(null);
+      return;
+    } else {
+      range = [lineNum, lineNum];
+      selectionAnchorRef.current = lineNum;
+    }
+    setHighlight([range]);
+    updateHighlightUrl(range);
+  }, [highlight, updateHighlightUrl]);
+
   // Cleanup WebSocket on unmount
   useEffect(() => {
     return () => {
@@ -527,6 +656,7 @@ export default function Playground() {
     setDataset(ex.dataset || null);
     setWorkers(ex.workers || 4);
     setActiveTab('program');
+    setHighlight(parseRanges(ex.highlight));
     setResults(null);
     setActiveResult(null);
     setError(null);
@@ -564,6 +694,9 @@ export default function Playground() {
 
     const tab = params.get('tab');
     if (tab === 'program' || tab === 'facts') setActiveTab(tab);
+
+    const hl = params.get('highlight') ?? params.get('lines');
+    if (hl != null) setHighlight(parseRanges(hl));
     // Run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1203,23 +1336,37 @@ export default function Playground() {
                 </div>
                 <div className={styles.editorWrap} ref={editorWrapRef}>
                   <div className={styles.gutter} ref={gutterRef} aria-hidden="true">
-                    {(program.length ? program.split('\n') : ['']).map((_, i) => (
-                      <div
-                        key={i}
-                        className={styles.gutterLine}
-                        style={lineHeights[i] ? { height: lineHeights[i] } : undefined}
-                      >
-                        {i + 1}
-                      </div>
-                    ))}
+                    {(program.length ? program.split('\n') : ['']).map((_, i) => {
+                      const ln = i + 1;
+                      const sel = highlight.some(([s, e]) => ln >= s && ln <= e);
+                      return (
+                        <div
+                          key={i}
+                          className={`${styles.gutterLine} ${sel ? styles.gutterLineSelected : ''}`}
+                          style={lineHeights[i] ? { height: lineHeights[i] } : undefined}
+                          onMouseDown={(e) => { e.preventDefault(); selectLine(ln, e.shiftKey); }}
+                          title="Click to select line · shift-click for a range"
+                        >
+                          {ln}
+                        </div>
+                      );
+                    })}
                   </div>
+                  {highlight.length > 0 && (
+                    <div className={styles.editorHighlights} aria-hidden="true">
+                      <div ref={highlightInnerRef} className={styles.editorHighlightsInner}>
+                        {highlight.map((_, i) => (
+                          <div key={i} className={styles.editorHighlightBand} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <textarea
                     className={styles.editor}
+                    ref={editorRef}
                     value={program}
                     onChange={e => setProgram(e.target.value)}
-                    onScroll={e => {
-                      if (gutterRef.current) gutterRef.current.scrollTop = e.target.scrollTop;
-                    }}
+                    onScroll={() => positionHighlights(false)}
                     placeholder="Type a Datalog program here, or pick an example above — then add input facts and Run."
                     spellCheck={false}
                     autoCapitalize="off"

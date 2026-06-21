@@ -428,15 +428,28 @@
   background: var(--pg-editor-bg);
   border-right: 1px solid var(--pg-editor-line);
   user-select: none;
-  pointer-events: none;
-  opacity: 0.6;
-  z-index: 1;
+  color: color-mix(in srgb, var(--pg-muted) 65%, transparent);
+  z-index: 3;
 }
 
 /* Each number's height is set inline from the measured wrapped line height;
-   this is the fallback for the first paint before measurement lands. */
+   this is the fallback for the first paint before measurement lands. Numbers
+   are clickable (GitHub-style line selection). */
 .gutterLine {
   min-height: calc(14px * 1.6);
+  cursor: pointer;
+  padding-right: 7px;
+  margin-right: -7px;
+}
+
+.gutterLine:hover {
+  color: var(--pg-accent-blue);
+  background: color-mix(in srgb, var(--pg-accent-blue) 10%, transparent);
+}
+
+.gutterLineSelected {
+  color: var(--pg-accent-blue);
+  font-weight: 700;
 }
 
 .editor {
@@ -483,6 +496,32 @@
 
 .editorMirrorLine {
   min-height: calc(14px * 1.6);
+}
+
+/* Translucent line-highlight overlay, above the textarea (so it shows over the
+   editor background) but pointer-transparent. The inner layer is translated to
+   follow the textarea's scroll. */
+.editorHighlights {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.editorHighlightsInner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.editorHighlightBand {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(255, 206, 84, 0.20);
+  box-shadow: inset 3px 0 0 var(--pg-accent-blue);
 }
 
 .editor:focus {

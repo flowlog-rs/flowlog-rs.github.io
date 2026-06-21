@@ -98,12 +98,19 @@ pub async fn compile(
     fs::create_dir_all(build.path().join("out")).await?;
     let out_bin = build.path().join("prog");
 
+    // Programs using explicit `fixpoint`/`loop` blocks (e.g. k-core) need the
+    // "extended" compiler mode. Only the batch variant is enabled — extend-inc
+    // isn't stable, so incremental always uses plain datalog-inc.
+    let extended = matches!(mode, Mode::Batch)
+        && (program.contains("fixpoint") || program.contains(".iterative") || program.contains("loop {"));
+    let mode_cli = if extended { "extend-batch" } else { mode.cli() };
+
     let mut cmd = Command::new(&cfg.compiler);
     cmd.arg(&dl)
         .arg("-o")
         .arg(&out_bin)
         .arg("--mode")
-        .arg(mode.cli())
+        .arg(mode_cli)
         .current_dir(build.path());
     match mode {
         // Relative I/O dirs are baked in; they resolve against the run-time
