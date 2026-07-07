@@ -39,11 +39,8 @@ PROFILE_VIZ_BIN    := $(PROFILE_VIZ_DIR)/target/release/flowlog-profile-viz
 SERVER_DIR       := $(CURDIR)/server
 SERVER_BIN       := $(SERVER_DIR)/target/release/flowlog-playground-server
 # The playground's hardcoded backend URL. `make start` rewrites the
-# DEFAULT_SERVER line here to the fresh tunnel URL; commit + push to deploy.
+# DEFAULT_SERVER line here to the fresh tunnel URL; you commit + push to deploy.
 PLAYGROUND_JS    := $(CURDIR)/src/pages/playground.js
-# When 1 (default), `make start` commits + pushes the DEFAULT_SERVER change so
-# GitHub Pages redeploys automatically. Set AUTO_PUSH=0 to only edit the file.
-AUTO_PUSH        ?= 1
 
 # --- cloudflared (HTTPS tunnel) -------------------------------------------
 CLOUDFLARED_BIN  := $(HOME)/bin/cloudflared
@@ -268,24 +265,8 @@ start: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN) $(TOMC
 	      else \
 	        sed -i "s|^const DEFAULT_SERVER = .*|const DEFAULT_SERVER = '$$URL';|" $(PLAYGROUND_JS); \
 	        echo "  ✓ updated src/pages/playground.js DEFAULT_SERVER  (was: $${old:-unset})"; \
-	        if [ "$(AUTO_PUSH)" != "1" ]; then \
-	          echo "    AUTO_PUSH=0 — commit + push manually to deploy:"; \
-	          echo "      git commit -am 'playground: point at new tunnel URL' && git push"; \
-	        else \
-	          GIT_ID=""; \
-	          if [ -z "$$(git -C $(CURDIR) config user.email 2>/dev/null)" ]; then \
-	            GIT_ID="-c user.name=playground-bot -c user.email=deploy@flowlog-rs.com"; \
-	          fi; \
-	          if git -C $(CURDIR) $$GIT_ID commit -q -m "playground: point at tunnel URL $$URL" -- $(PLAYGROUND_JS) 2>/dev/null; then \
-	            if git -C $(CURDIR) push -q 2>/dev/null; then \
-	              echo "  ✓ committed + pushed — GitHub Pages redeploys in ~1-2 min"; \
-	            else \
-	              echo "  ⚠ committed locally, but 'git push' failed — run 'git push' by hand"; \
-	            fi; \
-	          else \
-	            echo "  ⚠ 'git commit' failed — commit + push src/pages/playground.js by hand"; \
-	          fi; \
-	        fi; \
+	        echo "    commit + push to deploy the live site (Pages builds on push to main):"; \
+	        echo "      git commit -am 'playground: point at new tunnel URL' && git push"; \
 	      fi; \
 	    else \
 	      echo "  (src/pages/playground.js not found — set DEFAULT_SERVER = '$$URL' manually)"; \
