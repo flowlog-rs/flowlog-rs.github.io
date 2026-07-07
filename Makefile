@@ -38,10 +38,25 @@ PROFILE_VIZ_BIN    := $(PROFILE_VIZ_DIR)/target/release/flowlog-profile-viz
 # --- this repo ------------------------------------------------------------
 SERVER_DIR       := $(CURDIR)/server
 SERVER_BIN       := $(SERVER_DIR)/target/release/flowlog-playground-server
+# The playground's hardcoded backend URL. `make start` rewrites the
+# DEFAULT_SERVER line here to the fresh tunnel URL; commit + push to deploy.
+PLAYGROUND_JS    := $(CURDIR)/src/pages/playground.js
+# When 1 (default), `make start` commits + pushes the DEFAULT_SERVER change so
+# GitHub Pages redeploys automatically. Set AUTO_PUSH=0 to only edit the file.
+AUTO_PUSH        ?= 1
 
 # --- cloudflared (HTTPS tunnel) -------------------------------------------
 CLOUDFLARED_BIN  := $(HOME)/bin/cloudflared
 CLOUDFLARED_URL  := https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+
+# Named (persistent) tunnel vs. ephemeral quick tunnel.
+#   TUNNEL_NAME empty  → quick tunnel: random https://<...>.trycloudflare.com,
+#                        changes on every restart (needs no Cloudflare account).
+#   TUNNEL_NAME set    → named tunnel: fixed https://$(TUNNEL_HOSTNAME), stable
+#                        across restarts. One-time setup: `make tunnel-setup`.
+# Flip to named mode either here or per-invocation: `make start TUNNEL_NAME=flowlog-playground`.
+TUNNEL_NAME      ?=
+TUNNEL_HOSTNAME  ?= playground.flowlog-rs.com
 
 # --- runtime knobs (override on the command line) -------------------------
 PORT             ?= 8080
@@ -69,7 +84,7 @@ TUNNEL_URL_RE    := https://[a-z0-9-]+\.trycloudflare\.com
 .DEFAULT_GOAL := all
 
 .PHONY: help all setup env flowlog profile-viz server cloudflared \
-        start stop status url logs run tunnel local \
+        start stop status url logs run tunnel tunnel-setup local \
         update clean clean-flowlog clean-profile-viz dataset-tomcat doop
 
 # Regenerate the playground's Doop program module (src/doopProgram.js) from the
@@ -98,6 +113,7 @@ help:
 	@echo '  make status          show what is running'
 	@echo '  make url             print the current trycloudflare.com URL'
 	@echo '  make logs            tail -f backend + cloudflared logs'
+	@echo '  make tunnel-setup    one-time steps for a persistent named tunnel URL'
 	@echo ''
 	@echo 'Build / setup:'
 	@echo '  make setup           build everything, do not start anything'
@@ -217,23 +233,63 @@ start: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN) $(TOMC
 	@if [ -f $(CLOUDFLARED_PID) ] && kill -0 $$(cat $(CLOUDFLARED_PID)) 2>/dev/null; then \
 	  echo "==> cloudflared already running (pid $$(cat $(CLOUDFLARED_PID)))"; \
 	else \
-	  echo '==> starting cloudflared (detached)  log: $(CLOUDFLARED_LOG)'; \
 	  : > $(CLOUDFLARED_LOG); \
-	  nohup $(CLOUDFLARED_BIN) tunnel --url http://localhost:$(PORT) \
-	    >$(CLOUDFLARED_LOG) 2>&1 & \
+	  if [ -n "$(TUNNEL_NAME)" ]; then \
+	    echo '==> starting cloudflared named tunnel "$(TUNNEL_NAME)" → $(TUNNEL_HOSTNAME) (detached)  log: $(CLOUDFLARED_LOG)'; \
+	    nohup $(CLOUDFLARED_BIN) tunnel run --url http://localhost:$(PORT) $(TUNNEL_NAME) \
+	      >$(CLOUDFLARED_LOG) 2>&1 & \
+	  else \
+	    echo '==> starting cloudflared quick tunnel (detached)  log: $(CLOUDFLARED_LOG)'; \
+	    nohup $(CLOUDFLARED_BIN) tunnel --url http://localhost:$(PORT) \
+	      >$(CLOUDFLARED_LOG) 2>&1 & \
+	  fi; \
 	  echo $$! > $(CLOUDFLARED_PID); \
 	fi
 	@echo '==> waiting for tunnel URL...'
 	@for i in $$(seq 1 30); do \
-	  URL=$$(grep -oE '$(TUNNEL_URL_RE)' $(CLOUDFLARED_LOG) 2>/dev/null | head -1); \
+	  if [ -n "$(TUNNEL_NAME)" ]; then \
+	    if grep -qE 'Registered tunnel connection|Connection [0-9a-f-]+ registered' $(CLOUDFLARED_LOG) 2>/dev/null; then \
+	      URL="https://$(TUNNEL_HOSTNAME)"; else URL=""; fi; \
+	  else \
+	    URL=$$(grep -oE '$(TUNNEL_URL_RE)' $(CLOUDFLARED_LOG) 2>/dev/null | head -1); \
+	  fi; \
 	  if [ -n "$$URL" ]; then \
+	    msg="  HTTPS URL:  $$URL  "; \
+	    bar=$$(printf '─%.0s' $$(seq 1 $${#msg})); \
 	    echo; \
-	    echo "  ┌─────────────────────────────────────────────────────────────────────┐"; \
-	    printf  "  │  HTTPS URL:  %-54s │\n" "$$URL"; \
-	    echo "  └─────────────────────────────────────────────────────────────────────┘"; \
+	    echo "  ┌$$bar┐"; \
+	    echo "  │$$msg│"; \
+	    echo "  └$$bar┘"; \
 	    echo; \
-	    echo "  Paste into src/pages/playground.js as DEFAULT_SERVER:"; \
-	    echo "    const DEFAULT_SERVER = '$$URL';"; \
+	    if [ -f $(PLAYGROUND_JS) ]; then \
+	      old=$$(sed -n "s|^const DEFAULT_SERVER = '\(.*\)';.*|\1|p" $(PLAYGROUND_JS) | head -1); \
+	      if [ "$$old" = "$$URL" ]; then \
+	        echo "  src/pages/playground.js already points here — no change."; \
+	      else \
+	        sed -i "s|^const DEFAULT_SERVER = .*|const DEFAULT_SERVER = '$$URL';|" $(PLAYGROUND_JS); \
+	        echo "  ✓ updated src/pages/playground.js DEFAULT_SERVER  (was: $${old:-unset})"; \
+	        if [ "$(AUTO_PUSH)" != "1" ]; then \
+	          echo "    AUTO_PUSH=0 — commit + push manually to deploy:"; \
+	          echo "      git commit -am 'playground: point at new tunnel URL' && git push"; \
+	        else \
+	          GIT_ID=""; \
+	          if [ -z "$$(git -C $(CURDIR) config user.email 2>/dev/null)" ]; then \
+	            GIT_ID="-c user.name=playground-bot -c user.email=deploy@flowlog-rs.com"; \
+	          fi; \
+	          if git -C $(CURDIR) $$GIT_ID commit -q -m "playground: point at tunnel URL $$URL" -- $(PLAYGROUND_JS) 2>/dev/null; then \
+	            if git -C $(CURDIR) push -q 2>/dev/null; then \
+	              echo "  ✓ committed + pushed — GitHub Pages redeploys in ~1-2 min"; \
+	            else \
+	              echo "  ⚠ committed locally, but 'git push' failed — run 'git push' by hand"; \
+	            fi; \
+	          else \
+	            echo "  ⚠ 'git commit' failed — commit + push src/pages/playground.js by hand"; \
+	          fi; \
+	        fi; \
+	      fi; \
+	    else \
+	      echo "  (src/pages/playground.js not found — set DEFAULT_SERVER = '$$URL' manually)"; \
+	    fi; \
 	    echo; \
 	    echo "  Stop everything with:  make stop"; \
 	    echo "  Tail logs with:        make logs"; \
@@ -268,18 +324,52 @@ status:
 	else echo "  backend:     stopped"; fi
 	@if [ -f $(CLOUDFLARED_PID) ] && kill -0 $$(cat $(CLOUDFLARED_PID)) 2>/dev/null; then \
 	  echo "  cloudflared: running (pid $$(cat $(CLOUDFLARED_PID)))"; \
-	  URL=$$(grep -oE '$(TUNNEL_URL_RE)' $(CLOUDFLARED_LOG) 2>/dev/null | head -1); \
-	  [ -n "$$URL" ] && echo "  URL:         $$URL"; \
+	  if [ -n "$(TUNNEL_NAME)" ]; then \
+	    echo "  URL:         https://$(TUNNEL_HOSTNAME)  (named tunnel: $(TUNNEL_NAME))"; \
+	  else \
+	    URL=$$(grep -oE '$(TUNNEL_URL_RE)' $(CLOUDFLARED_LOG) 2>/dev/null | head -1); \
+	    [ -n "$$URL" ] && echo "  URL:         $$URL  (quick tunnel)"; \
+	  fi; \
 	else echo "  cloudflared: stopped"; fi
 
 url:
-	@URL=$$(grep -oE '$(TUNNEL_URL_RE)' $(CLOUDFLARED_LOG) 2>/dev/null | head -1); \
-	 if [ -n "$$URL" ]; then echo "$$URL"; \
-	 else echo '(no URL yet — start with "make start")'; exit 1; fi
+	@if [ -n "$(TUNNEL_NAME)" ]; then echo "https://$(TUNNEL_HOSTNAME)"; \
+	 else \
+	   URL=$$(grep -oE '$(TUNNEL_URL_RE)' $(CLOUDFLARED_LOG) 2>/dev/null | head -1); \
+	   if [ -n "$$URL" ]; then echo "$$URL"; \
+	   else echo '(no URL yet — start with "make start")'; exit 1; fi; \
+	 fi
 
 logs:
 	@echo 'tailing $(BACKEND_LOG) + $(CLOUDFLARED_LOG)  (Ctrl+C to stop)'
 	@tail -F $(BACKEND_LOG) $(CLOUDFLARED_LOG) 2>/dev/null
+
+# One-time runbook for a persistent named tunnel (stable https://$(TUNNEL_HOSTNAME)
+# that survives restarts, so DEFAULT_SERVER never has to change again). Cloudflare
+# must manage the zone's DNS — flowlog-rs.com is on Namecheap today, so steps 1-2
+# move it. This target only PRINTS the steps; you run them (they need a browser).
+tunnel-setup: $(CLOUDFLARED_BIN)
+	@echo 'Persistent named-tunnel setup — one time. Steps 1-2 are manual (browser):'
+	@echo ''
+	@echo '  1. Add flowlog-rs.com to Cloudflare (free plan):'
+	@echo '       https://dash.cloudflare.com  →  Add a site  →  flowlog-rs.com'
+	@echo '     Cloudflare imports existing DNS. VERIFY the GitHub Pages records came'
+	@echo '     over (apex A records + the www CNAME → flowlog-rs.github.io) and leave'
+	@echo '     them DNS-only (grey cloud) so the main site keeps serving from Pages.'
+	@echo ''
+	@echo '  2. At Namecheap (Domain List → Manage → Nameservers → Custom DNS), replace'
+	@echo '     dns1/dns2.registrar-servers.com with the two nameservers Cloudflare gives'
+	@echo '     you. Wait until Cloudflare marks the zone "Active" (minutes–hours).'
+	@echo ''
+	@echo '  3-5. Then run (uses ~/.cloudflared for creds; re-run on a fresh node):'
+	@echo '       $(CLOUDFLARED_BIN) tunnel login          # pick the flowlog-rs.com zone'
+	@echo '       $(CLOUDFLARED_BIN) tunnel create flowlog-playground'
+	@echo '       $(CLOUDFLARED_BIN) tunnel route dns flowlog-playground $(TUNNEL_HOSTNAME)'
+	@echo ''
+	@echo '  6. Start using the stable name:'
+	@echo '       make start TUNNEL_NAME=flowlog-playground'
+	@echo '     Verify, then make it permanent by setting TUNNEL_NAME := flowlog-playground'
+	@echo '     near the top of this Makefile. DEFAULT_SERVER becomes a fixed constant.'
 
 # ─── Foreground variants (debugging) ───────────────────────────────────────
 
@@ -329,10 +419,12 @@ local: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) node_modules
 	  if ! kill -0 $$BACKEND_PID 2>/dev/null; then \
 	    echo "backend failed to start:"; tail -20 /tmp/flowlog-local-backend.log; exit 1; \
 	  fi; \
+	  msg="  Open:  http://localhost:$(LOCAL_WEB_PORT)/playground?server=http://localhost:$(LOCAL_PORT)  "; \
+	  bar=$$(printf '─%.0s' $$(seq 1 $${#msg})); \
 	  echo; \
-	  echo "  ┌──────────────────────────────────────────────────────────────────────────────┐"; \
-	  printf  "  │  Open:  %-68s │\n" "http://localhost:$(LOCAL_WEB_PORT)/playground?server=http://localhost:$(LOCAL_PORT)"; \
-	  echo "  └──────────────────────────────────────────────────────────────────────────────┘"; \
+	  echo "  ┌$$bar┐"; \
+	  echo "  │$$msg│"; \
+	  echo "  └$$bar┘"; \
 	  echo "  remote node? forward ports $(LOCAL_WEB_PORT) and $(LOCAL_PORT).   Ctrl+C stops both."; \
 	  echo; \
 	  npm start -- --no-open --port $(LOCAL_WEB_PORT)'
