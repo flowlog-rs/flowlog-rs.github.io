@@ -233,11 +233,11 @@ start: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN) $(TOMC
 	  : > $(CLOUDFLARED_LOG); \
 	  if [ -n "$(TUNNEL_NAME)" ]; then \
 	    echo '==> starting cloudflared named tunnel "$(TUNNEL_NAME)" → $(TUNNEL_HOSTNAME) (detached)  log: $(CLOUDFLARED_LOG)'; \
-	    nohup $(CLOUDFLARED_BIN) tunnel run --url http://localhost:$(PORT) $(TUNNEL_NAME) \
+	    nohup $(CLOUDFLARED_BIN) tunnel --no-autoupdate run --url http://localhost:$(PORT) $(TUNNEL_NAME) \
 	      >$(CLOUDFLARED_LOG) 2>&1 & \
 	  else \
 	    echo '==> starting cloudflared quick tunnel (detached)  log: $(CLOUDFLARED_LOG)'; \
-	    nohup $(CLOUDFLARED_BIN) tunnel --url http://localhost:$(PORT) \
+	    nohup $(CLOUDFLARED_BIN) tunnel --no-autoupdate --url http://localhost:$(PORT) \
 	      >$(CLOUDFLARED_LOG) 2>&1 & \
 	  fi; \
 	  echo $$! > $(CLOUDFLARED_PID); \
@@ -376,7 +376,7 @@ tunnel: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN)
 	 PID=$$!; \
 	 trap "kill $$PID 2>/dev/null" EXIT INT TERM HUP; \
 	 sleep 2; \
-	 $(CLOUDFLARED_BIN) tunnel --url http://localhost:$(PORT)
+	 $(CLOUDFLARED_BIN) tunnel --no-autoupdate --url http://localhost:$(PORT)
 
 # Full local test: backend on 127.0.0.1:$(LOCAL_PORT) + the Docusaurus dev
 # server on $(LOCAL_WEB_PORT). The frontend's `?server=` override points the
