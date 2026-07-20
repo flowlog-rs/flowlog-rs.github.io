@@ -82,6 +82,7 @@ TUNNEL_URL_RE    := https://[a-z0-9-]+\.trycloudflare\.com
 
 .PHONY: help all setup env flowlog profile-viz server cloudflared \
         start stop status url logs run tunnel tunnel-setup local \
+        monitor monitor-install monitor-uninstall \
         update clean clean-flowlog clean-profile-viz dataset-tomcat doop
 
 # Regenerate the playground's Doop program module (src/doopProgram.js) from the
@@ -111,6 +112,11 @@ help:
 	@echo '  make url             print the current trycloudflare.com URL'
 	@echo '  make logs            tail -f backend + cloudflared logs'
 	@echo '  make tunnel-setup    one-time steps for a persistent named tunnel URL'
+	@echo ''
+	@echo 'Uptime alerts (emails you if the backend goes down):'
+	@echo '  make monitor         run one health check now (prints UP/DOWN)'
+	@echo '  make monitor-install install the every-5-min cron watchdog'
+	@echo '  make monitor-uninstall  remove the cron watchdog'
 	@echo ''
 	@echo 'Build / setup:'
 	@echo '  make setup           build everything, do not start anything'
@@ -272,6 +278,17 @@ start: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN) $(TOMC
 	      echo "  (src/pages/playground.js not found — set DEFAULT_SERVER = '$$URL' manually)"; \
 	    fi; \
 	    echo; \
+	    if [ "$(MONITOR_AUTO)" = "1" ]; then \
+	      if [ -n "$(HC_PING_URL)" ]; then printf '%s\n' '$(HC_PING_URL)' > $(RUN_DIR)/hc-ping-url; fi; \
+	      if [ -s $(RUN_DIR)/hc-ping-url ]; then \
+	        ( crontab -l 2>/dev/null | grep -vF '$(MONITOR_TAG)'; echo "$(MONITOR_CRON)" ) | crontab - 2>/dev/null \
+	          && echo "  ✓ uptime monitor armed — emails on downtime (make monitor-uninstall to stop)"; \
+	      else \
+	        echo "  uptime monitor: add a ping URL to enable email alerts, then it self-arms:"; \
+	        echo "    echo '<healthchecks.io ping URL>' > $(RUN_DIR)/hc-ping-url"; \
+	      fi; \
+	    fi; \
+	    echo; \
 	    echo "  Stop everything with:  make stop"; \
 	    echo "  Tail logs with:        make logs"; \
 	    exit 0; \
@@ -351,6 +368,44 @@ tunnel-setup: $(CLOUDFLARED_BIN)
 	@echo '       make start TUNNEL_NAME=flowlog-playground'
 	@echo '     Verify, then make it permanent by setting TUNNEL_NAME := flowlog-playground'
 	@echo '     near the top of this Makefile. DEFAULT_SERVER becomes a fixed constant.'
+
+# ─── Uptime monitoring (email alert if the backend goes down) ───────────────
+# scripts/monitor.sh curls the public tunnel's /health end-to-end and pings a
+# Healthchecks.io URL on success; if pings stop (tunnel/backend/node down) it
+# emails you. Free, needs no mail server, and survives the changing quick-URL.
+#
+# `make start` auto-arms this watchdog (set MONITOR_AUTO=0 to opt out). The only
+# machine-specific bit is the Healthchecks.io ping URL, resolved in this order:
+#   1. HC_PING_URL (make variable / env) — if set, it's written to .run/hc-ping-url
+#   2. .run/hc-ping-url (per-machine file; NOT in git)
+# Zero-touch on every new machine: set HC_PING_URL below so it's carried in git.
+# ⚠ this repo is PUBLIC, so the URL would be visible (someone could spoof pings /
+# mask a real outage). Leave it empty to keep the URL private and instead run
+# `echo '<url>' > .run/hc-ping-url` once per machine.
+HC_PING_URL  ?=
+MONITOR_AUTO ?= 1
+MONITOR_TAG  := flowlog-playground-monitor
+MONITOR_CRON := */5 * * * * cd $(CURDIR) && bash scripts/monitor.sh >>$(RUN_DIR)/monitor.log 2>&1  \# $(MONITOR_TAG)
+
+monitor:
+	@bash scripts/monitor.sh
+
+monitor-install:
+	@mkdir -p $(RUN_DIR)
+	@if [ -n "$(HC_PING_URL)" ]; then printf '%s\n' '$(HC_PING_URL)' > $(RUN_DIR)/hc-ping-url; fi
+	@( crontab -l 2>/dev/null | grep -vF '$(MONITOR_TAG)'; echo "$(MONITOR_CRON)" ) | crontab -
+	@echo 'installed cron watchdog (every 5 min).  logs: $(RUN_DIR)/monitor.log'
+	@if [ ! -s $(RUN_DIR)/hc-ping-url ]; then \
+	  echo 'note: no ping URL yet — email alerts are OFF until you add one:'; \
+	  echo "  echo '<healthchecks.io ping URL>' > $(RUN_DIR)/hc-ping-url"; \
+	fi
+	@echo 'test check now (pings Healthchecks.io if healthy — confirm on your dashboard):'
+	@bash scripts/monitor.sh || true
+	@echo 'remove it with: make monitor-uninstall'
+
+monitor-uninstall:
+	@( crontab -l 2>/dev/null | grep -vF '$(MONITOR_TAG)' ) | crontab - || true
+	@echo 'removed cron watchdog.'
 
 # ─── Foreground variants (debugging) ───────────────────────────────────────
 
