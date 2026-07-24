@@ -1,0 +1,45 @@
+---
+title: DOOP points-to
+description: FlowLog vs Soufflé on DOOP points-to analyses
+---
+
+export const FL = () => <span className="flowlog"><span className="flow">Flow</span><span className="log">Log</span></span>;
+
+<div className="bench-wrap">
+
+<a className="bench-back" href="/benchmarks">← All benchmarks</a>
+
+# DOOP points-to
+
+<p className="bench-lede">
+How fast <FL/> runs the DOOP Java points-to analyses, compared with Soufflé.
+</p>
+
+<dl className="spec">
+  <dt>Engines</dt>
+  <dd><FL/> vs Soufflé 2.5, run both with and without DOOP's hand-tuned join orders.</dd>
+  <dt>Workload</dt>
+  <dd>24 context-sensitive points-to analyses × 6 DaCapo Java programs (luindex, eclipse, batik, h2o, xalan, spring).</dd>
+  <dt>Measured</dt>
+  <dd>Run time to fixpoint via <code>.printsize</code> (no output serialization), median of 3 runs.</dd>
+  <dt>Platform</dt>
+  <dd>64-core machine, 503 GB RAM, facts on ext4. Both engines run at 32 threads.</dd>
+</dl>
+
+<div className="bench-stats">
+  <div><div className="n">up to 5.7×</div><div className="l">vs hand-tuned Soufflé</div></div>
+  <div><div className="n">up to 17.8×</div><div className="l">vs non-hand-tuned Soufflé</div></div>
+  <div><div className="n">118 / 118</div><div className="l">faster, never slower</div></div>
+</div>
+
+<iframe
+  src="/benchmarks/doop-speedup.html"
+  title="FlowLog vs Soufflé — DOOP points-to speedup heatmap"
+  style={{width:'100%',height:'1000px',border:0,borderRadius:'12px',marginTop:'6px'}}
+/>
+
+<p style={{marginTop:'16px',fontSize:'14px',color:'var(--ifm-blockquote-color)'}}>
+Reproduce with <code>verify/bench/time.sh</code> in <a href="https://github.com/flowlog-rs/doop-flowlog">doop-flowlog</a>.
+</p>
+
+</div>

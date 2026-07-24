@@ -1,0 +1,220 @@
+<title>FlowLog vs Soufflé — DOOP points-to speedup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Ubuntu+Mono&display=swap" rel="stylesheet">
+<style>
+  /* ---- FlowLog site theme (matches flowlog-rs.github.io custom.css):
+         Ubuntu font, brand blue #0087B9, rust accent, site surfaces.
+         Tokens on :root so the whole page shares one surface; dark follows
+         OS scheme and the site's data-theme toggle. ---- */
+  :root{
+    color-scheme:light;
+    --plane:#f7fafd;           /* site page/pre background */
+    --panel:#ffffff;
+    --ink:#1c2733; --ink2:#4a5560; --muted:#7a8894;
+    --border:#e6ecf1;          /* site table/toc border */
+    --good:#5f2d12;            /* FlowLog rust accent — "FlowLog only" win */
+    --neutral:#eaeff3; --neutral-ink:#8a97a3;   /* both DNF */
+    /* sequential ramp built from the FlowLog brand blue #0087B9 */
+    --b1:#dceef7; --b2:#aed9ec; --b3:#72c0e0; --b4:#2ea0c9; --b5:#0087b9; --b6:#0a6a90;
+  }
+  @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+    color-scheme:dark; --plane:#161c25; --panel:#1c222c;
+    --ink:#e6ebf0; --ink2:#a0b3c2; --muted:#7c8b99; --border:#243042;
+    --good:#d2824b; --neutral:#222b38; --neutral-ink:#7c8b99;
+  }}
+  :root[data-theme="dark"]{
+    color-scheme:dark; --plane:#161c25; --panel:#1c222c;
+    --ink:#e6ebf0; --ink2:#a0b3c2; --muted:#7c8b99; --border:#243042;
+    --good:#d2824b; --neutral:#222b38; --neutral-ink:#7c8b99;
+  }
+  html,body{margin:0; background:var(--plane)}
+  .wrap{                       /* centered content column */
+    font-family:'Ubuntu','Cambay',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    color:var(--ink); max-width:860px; margin:0 auto; padding:34px 24px 56px;
+  }
+  code{font-family:'Ubuntu Mono','JetBrains Mono',SFMono-Regular,Menlo,monospace}
+  /* embedded in the site: the page already shows title + headline, so hide ours */
+  .wrap.embedded{padding-top:6px; padding-bottom:10px}
+  .wrap.embedded h1, .wrap.embedded .cap, .wrap.embedded .foot-cfg{display:none}
+  /* FlowLog wordmark — Flow (blue) + Log (rust), matching the site */
+  .flow{color:#0087b9} .log{color:#5f2d12}
+  @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .flow{color:#46bee6} :root:where(:not([data-theme="light"])) .log{color:#d2824b}}
+  :root[data-theme="dark"] .flow{color:#46bee6} :root[data-theme="dark"] .log{color:#d2824b}
+  h1{font-size:20px; font-weight:650; letter-spacing:-0.01em; margin:0 0 10px}
+  /* headline stat: median + range only */
+  .cap{font-size:14px; color:var(--ink2); line-height:1.55; margin:0 0 20px}
+  .cap b{color:var(--ink); font-weight:650}
+  .cap .big{font-size:16px}
+  .toolbar{display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:12.5px; color:var(--muted)}
+  .seg{display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden}
+  .seg button{font:inherit; font-size:12.5px; padding:5px 12px; background:var(--panel); color:var(--ink2); border:0; cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--b4); color:#fff}
+  /* heatmap panel — table sized to content and centered, so it reads as one block */
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:10px; overflow-x:auto}
+  table.hm{border-collapse:separate; border-spacing:2px; margin:0 auto}
+  table.hm th{font-weight:550; font-size:11.5px; color:var(--ink2); padding:3px 5px}
+  table.hm th.fam{text-align:right; white-space:nowrap; padding-right:9px; font-weight:450; color:var(--ink)}
+  table.hm td{width:90px; height:38px; text-align:center; border-radius:5px; font-variant-numeric:tabular-nums;
+              font-size:13.5px; font-weight:600; cursor:default}
+  table.hm td .sub{display:block; font-size:9px; font-weight:500; opacity:.7; margin-top:1px}
+  .legend{display:flex; gap:15px; flex-wrap:wrap; align-items:center; margin-top:13px; font-size:11.5px; color:var(--ink2)}
+  .legend .sw{display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-2px; margin-right:5px; border:1px solid var(--border)}
+  .ramp{display:inline-flex; align-items:center; gap:2px}
+  .ramp i{width:18px; height:11px; border-radius:2px}
+  .foot{font-size:11px; color:var(--muted); margin-top:18px; line-height:1.5}
+  .tip{position:fixed; pointer-events:none; z-index:20; background:var(--ink); color:var(--plane);
+       font-size:11px; line-height:1.55; padding:8px 10px; border-radius:7px; opacity:0; transition:opacity .08s;
+       box-shadow:0 4px 16px rgba(0,0,0,.28); max-width:280px}
+  .tip .k{color:#7fb2f0}
+  .tip .th{display:inline-block; min-width:64px; color:var(--muted)}   /* row label in tooltip */
+  .tip .dim{color:var(--muted)}
+  .tip b{color:var(--plane)}
+</style>
+
+<div class="wrap">
+  <h1><span class="flow">Flow</span><span class="log">Log</span> vs Soufflé on DOOP points-to</h1>
+
+  <!-- single headline: median + range, updated by the toggle -->
+  <p class="cap" id="cap"></p>
+
+  <div class="toolbar">
+    <span>speedup baseline</span>
+    <span class="seg" role="group" aria-label="baseline">
+      <button id="mTuned" aria-pressed="true">hand-tuned Soufflé</button>
+      <button id="mUntuned" aria-pressed="false">non-hand-tuned Soufflé</button>
+    </span>
+  </div>
+
+  <div class="panel"><table class="hm" id="hm"></table></div>
+
+  <div class="legend">
+    <span class="ramp" id="ramp"></span>
+    <span><span class="sw" style="background:var(--good)"></span>FlowLog only (Soufflé did not finish)</span>
+    <span><span class="sw" style="background:var(--neutral)"></span>neither finished (out of memory or 30-min timeout)</span>
+  </div>
+
+  <p class="foot"><span class="foot-cfg">24 families × 6 DaCapo programs · FlowLog (<code>-w32</code>) vs Soufflé 2.5 (<code>-j32</code>) · run time via <code>.printsize</code>, median of 3 · 64-core, 503 GB, facts on ext4. </span><span class="foot-hint">Hover a cell for run &amp; compile times and peak RAM.</span></p>
+  <div class="tip" id="tip"></div>
+</div>
+
+<script>
+const DATA = {"fams":["context-insensitive","1-type-sensitive","1-type-sensitive+heap","1-call-site-sensitive","1-call-site-sensitive+heap","1-object-sensitive","1-object-sensitive+heap","1-object-1-type-sensitive+heap","2-type-sensitive+heap","2-type-object-sensitive+heap","2-type-object-sensitive+2-heap","2-object-sensitive+heap","2-object-sensitive+2-heap","2-call-site-sensitive+heap","2-call-site-sensitive+2-heap","3-type-sensitive+2-heap","3-type-sensitive+3-heap","3-object-sensitive+2-heap","3-object-sensitive+3-heap","4-object-sensitive+4-heap","adaptive-2-object-sensitive+heap","sticky-2-object-sensitive","selective-2-object-sensitive+heap","partitioned-2-object-sensitive+heap"],"ds":["luindex","eclipse","batik","h2o","xalan","spring"],"builds":{"context-insensitive":[204,145,152,6.8,2.2],"1-type-sensitive":[243,153,154,9.0,2.2],"1-type-sensitive+heap":[239,151,151,9.5,2.2],"1-call-site-sensitive":[233,141,152,9.1,2.2],"1-call-site-sensitive+heap":[237,143,164,9.4,2.2],"1-object-sensitive":[233,143,151,9.0,2.2],"1-object-sensitive+heap":[235,142,156,9.1,2.2],"1-object-1-type-sensitive+heap":[266,150,150,10.7,2.2],"2-type-sensitive+heap":[262,150,153,10.5,2.2],"2-type-object-sensitive+heap":[268,151,153,10.6,2.2],"2-type-object-sensitive+2-heap":[243,152,154,9.4,2.2],"2-object-sensitive+heap":[259,140,156,10.6,2.2],"2-object-sensitive+2-heap":[241,142,158,9.0,2.2],"2-call-site-sensitive+heap":[261,142,152,10.6,2.2],"2-call-site-sensitive+2-heap":[246,139,149,9.2,2.2],"3-type-sensitive+2-heap":[265,149,154,10.6,2.2],"3-type-sensitive+3-heap":[236,151,154,9.7,2.1],"3-object-sensitive+2-heap":[259,144,153,10.7,2.2],"3-object-sensitive+3-heap":[235,142,152,9.6,2.2],"4-object-sensitive+4-heap":[235,141,153,9.2,2.2],"adaptive-2-object-sensitive+heap":[275,159,159,10.6,2.2],"sticky-2-object-sensitive":[264,149,153,10.9,2.2],"selective-2-object-sensitive+heap":[261,144,167,10.6,2.2],"partitioned-2-object-sensitive+heap":[263,154,161,10.5,2.1]},"cells":[["context-insensitive","luindex","both",2.0,2.85,13,26,37,26,4.2,2.8,3.3],["context-insensitive","eclipse","both",2.41,3.94,17,41,67,41,5.7,4.8,5.5],["context-insensitive","batik","both",3.08,6.59,37,114,244,114,10.6,12.7,14.5],["context-insensitive","h2o","both",2.1,2.34,88,185,206,185,23.8,28.9,29.5],["context-insensitive","xalan","both",1.47,1.82,17,25,31,25,3.8,2.6,2.8],["context-insensitive","spring","both",3.19,6.66,32,102,213,102,10.6,12.3,14.8],["1-type-sensitive","luindex","both",2.41,4.29,17,41,73,41,5.1,4.4,5.2],["1-type-sensitive","eclipse","both",2.89,9.89,28,81,277,81,8.0,8.7,10.5],["1-type-sensitive","batik","both",4.12,12.37,105,433,1299,433,31.0,47.7,55.2],["1-type-sensitive","h2o","both",2.2,2.95,95,209,280,209,23.7,32.3,34.0],["1-type-sensitive","xalan","both",1.83,2.39,18,33,43,33,4.4,3.5,3.9],["1-type-sensitive","spring","both",3.66,15.64,67,245,1048,245,18.8,26.6,32.7],["1-type-sensitive+heap","luindex","both",2.11,3.07,28,59,86,59,6.1,5.6,6.8],["1-type-sensitive+heap","eclipse","both",2.36,5.73,66,156,378,156,10.8,13.3,16.3],["1-type-sensitive+heap","batik","both",2.76,6.83,240,663,1638,663,38.4,57.2,67.8],["1-type-sensitive+heap","h2o","both",2.12,2.67,120,254,320,254,23.9,34.8,37.1],["1-type-sensitive+heap","xalan","both",1.82,2.23,22,40,49,40,4.9,4.0,4.5],["1-type-sensitive+heap","spring","both",2.63,6.75,154,405,1040,405,23.2,33.3,41.4],["1-call-site-sensitive","luindex","both",3.11,5.53,19,59,105,59,6.8,7.6,8.5],["1-call-site-sensitive","eclipse","both",4.19,8.64,36,151,311,151,14.0,20.6,23.4],["1-call-site-sensitive","batik","both",5.29,12.08,89,471,1075,471,34.2,58.5,65.7],["1-call-site-sensitive","h2o","both",2.6,3.57,105,273,375,273,28.0,41.8,43.7],["1-call-site-sensitive","xalan","both",2.24,3.76,21,47,79,47,5.9,5.6,6.2],["1-call-site-sensitive","spring","both",5.22,13.78,91,475,1254,475,37.5,61.0,69.8],["1-call-site-sensitive+heap","luindex","both",3.05,5.35,20,61,107,61,6.9,7.8,8.8],["1-call-site-sensitive+heap","eclipse","both",4.55,8.98,44,200,395,200,17.1,26.7,30.4],["1-call-site-sensitive+heap","batik","both",5.72,12.97,121,692,1569,692,49.8,87.0,97.5],["1-call-site-sensitive+heap","h2o","both",2.77,3.95,111,308,439,308,30.3,49.0,51.7],["1-call-site-sensitive+heap","xalan","both",2.4,4.0,20,48,80,48,6.0,5.8,6.3],["1-call-site-sensitive+heap","spring","both",5.25,13.55,93,488,1260,488,37.8,64.6,74.0],["1-object-sensitive","luindex","both",2.79,6.92,24,67,166,67,6.9,7.0,8.4],["1-object-sensitive","eclipse","both",2.98,17.76,54,161,959,161,11.9,15.1,18.2],["1-object-sensitive","batik","both",4.56,null,248,1130,null,1130,69.1,null,126.5],["1-object-sensitive","h2o","both",2.41,3.92,108,260,423,260,25.1,37.4,39.7],["1-object-sensitive","xalan","both",2.19,3.14,21,46,66,46,5.4,4.8,5.4],["1-object-sensitive","spring","both",3.8,null,148,562,null,562,37.0,null,67.0],["1-object-sensitive+heap","luindex","both",2.27,3.93,45,102,177,102,8.5,9.4,11.3],["1-object-sensitive+heap","eclipse","both",2.31,6.49,183,422,1188,422,19.2,27.3,33.5],["1-object-sensitive+heap","batik","flonly",null,null,592,null,null,null,87.5,null,null],["1-object-sensitive+heap","h2o","both",2.2,3.43,152,335,522,335,29.5,43.5,47.4],["1-object-sensitive+heap","xalan","both",1.96,2.57,28,55,72,55,6.8,5.6,6.3],["1-object-sensitive+heap","spring","both",2.9,null,298,864,null,864,45.8,null,85.9],["1-object-1-type-sensitive+heap","luindex","both",2.06,2.94,34,70,100,70,7.3,5.2,6.0],["1-object-1-type-sensitive+heap","eclipse","both",2.32,5.63,81,188,456,188,15.4,16.6,20.4],["1-object-1-type-sensitive+heap","batik","both",4.2,null,171,719,null,719,57.6,null,83.4],["1-object-1-type-sensitive+heap","h2o","both",2.26,2.79,153,346,427,346,28.0,37.1,39.3],["1-object-1-type-sensitive+heap","xalan","both",1.8,2.1,30,54,63,54,6.2,4.0,4.4],["1-object-1-type-sensitive+heap","spring","both",3.3,null,305,1007,null,1007,47.4,null,75.1],["2-type-sensitive+heap","luindex","both",2.0,3.0,15,30,45,30,4.3,2.8,3.3],["2-type-sensitive+heap","eclipse","both",2.52,5.72,29,73,166,73,7.8,7.7,9.3],["2-type-sensitive+heap","batik","both",3.77,14.23,83,313,1181,313,28.7,33.8,40.1],["2-type-sensitive+heap","h2o","both",2.19,2.77,99,217,274,217,23.5,31.1,32.4],["2-type-sensitive+heap","xalan","both",1.56,1.94,18,28,35,28,4.1,2.6,2.8],["2-type-sensitive+heap","spring","both",3.28,9.24,86,282,795,282,21.7,27.6,34.4],["2-type-object-sensitive+heap","luindex","both",2.12,3.03,33,70,100,70,7.4,5.2,6.0],["2-type-object-sensitive+heap","eclipse","both",2.32,5.49,82,190,450,190,15.2,16.7,20.4],["2-type-object-sensitive+heap","batik","both",4.14,null,175,725,null,725,57.6,null,83.3],["2-type-object-sensitive+heap","h2o","both",2.28,2.85,156,355,445,355,27.8,37.0,39.4],["2-type-object-sensitive+heap","xalan","both",1.74,2.03,31,54,63,54,6.4,4.0,4.4],["2-type-object-sensitive+heap","spring","both",3.32,null,304,1010,null,1010,46.9,null,75.5],["2-type-object-sensitive+2-heap","luindex","both",1.82,1.9,68,124,129,124,10.1,5.8,6.9],["2-type-object-sensitive+2-heap","eclipse","both",2.13,3.73,150,319,559,319,20.9,19.6,24.4],["2-type-object-sensitive+2-heap","batik","both",3.64,null,270,983,null,983,75.0,null,99.9],["2-type-object-sensitive+2-heap","h2o","both",2.1,2.1,268,562,562,591,33.1,40.2,44.0],["2-type-object-sensitive+2-heap","xalan","both",1.42,1.42,57,81,81,96,8.5,4.8,5.5],["2-type-object-sensitive+2-heap","spring","both",2.99,null,597,1784,null,1784,58.6,null,80.4],["2-object-sensitive+heap","luindex","both",2.05,2.77,40,82,111,82,7.8,5.4,6.3],["2-object-sensitive+heap","eclipse","both",2.49,5.77,104,259,600,259,19.0,21.2,26.1],["2-object-sensitive+heap","batik","both",4.27,null,188,803,null,803,62.8,null,88.6],["2-object-sensitive+heap","h2o","both",2.26,2.36,185,418,436,418,29.6,38.4,40.9],["2-object-sensitive+heap","xalan","both",1.76,1.92,37,65,71,65,6.8,4.3,4.8],["2-object-sensitive+heap","spring","both",3.49,null,485,1695,null,1695,58.0,null,88.0],["2-object-sensitive+2-heap","luindex","both",1.66,1.66,103,171,171,188,10.6,6.7,8.1],["2-object-sensitive+2-heap","eclipse","both",2.01,3.64,272,548,991,548,28.8,32.4,40.3],["2-object-sensitive+2-heap","batik","both",3.61,null,353,1275,null,1275,94.1,null,119.7],["2-object-sensitive+2-heap","h2o","both",1.87,1.87,395,740,740,957,39.3,47.0,51.9],["2-object-sensitive+2-heap","xalan","both",1.27,1.27,85,108,108,146,9.5,5.4,6.4],["2-object-sensitive+2-heap","spring","flonly",null,null,1277,null,null,null,75.3,null,null],["2-call-site-sensitive+heap","luindex","flonly",null,null,471,null,null,null,362.4,null,null],["2-call-site-sensitive+heap","eclipse","flonly",null,null,658,null,null,null,416.0,null,null],["2-call-site-sensitive+heap","batik","neither",null,null,null,null,null,null,null,null,null],["2-call-site-sensitive+heap","h2o","neither",null,null,null,null,null,null,null,null,null],["2-call-site-sensitive+heap","xalan","flonly",null,null,485,null,null,null,385.8,null,null],["2-call-site-sensitive+heap","spring","neither",null,null,null,null,null,null,null,null,null],["2-call-site-sensitive+2-heap","luindex","flonly",null,null,503,null,null,null,356.9,null,null],["2-call-site-sensitive+2-heap","eclipse","flonly",null,null,946,null,null,null,419.4,null,null],["2-call-site-sensitive+2-heap","batik","neither",null,null,null,null,null,null,null,null,null],["2-call-site-sensitive+2-heap","h2o","neither",null,null,null,null,null,null,null,null,null],["2-call-site-sensitive+2-heap","xalan","flonly",null,null,509,null,null,null,416.7,null,null],["2-call-site-sensitive+2-heap","spring","neither",null,null,null,null,null,null,null,null,null],["3-type-sensitive+2-heap","luindex","both",1.38,2.0,13,18,26,18,3.6,1.5,1.6],["3-type-sensitive+2-heap","eclipse","both",1.88,3.69,16,30,59,30,4.8,2.8,3.2],["3-type-sensitive+2-heap","batik","both",3.4,14.12,121,411,1709,411,48.7,43.6,51.1],["3-type-sensitive+2-heap","h2o","both",2.15,2.98,97,209,289,209,24.6,32.1,33.4],["3-type-sensitive+2-heap","xalan","both",1.35,1.71,17,23,29,23,3.7,2.2,2.3],["3-type-sensitive+2-heap","spring","both",2.58,6.48,31,80,201,80,10.6,9.0,10.9],["3-type-sensitive+3-heap","luindex","both",1.38,2.0,13,18,26,18,3.7,1.5,1.6],["3-type-sensitive+3-heap","eclipse","both",1.82,3.59,17,31,61,31,5.2,2.9,3.3],["3-type-sensitive+3-heap","batik","both",3.37,null,171,577,null,577,67.2,null,63.6],["3-type-sensitive+3-heap","h2o","both",2.71,5.05,126,342,636,342,45.4,52.5,58.8],["3-type-sensitive+3-heap","xalan","both",1.41,1.71,17,24,29,24,3.8,2.2,2.3],["3-type-sensitive+3-heap","spring","both",2.53,6.31,32,81,202,81,11.5,9.0,10.8],["3-object-sensitive+2-heap","luindex","both",1.93,3.53,15,29,53,29,5.2,2.7,3.0],["3-object-sensitive+2-heap","eclipse","both",2.4,5.3,20,48,106,48,7.1,4.7,5.4],["3-object-sensitive+2-heap","batik","both",4.23,null,368,1557,null,1557,146.8,null,173.6],["3-object-sensitive+2-heap","h2o","both",2.7,4.3,121,327,520,327,42.0,48.6,52.8],["3-object-sensitive+2-heap","xalan","both",1.67,2.28,18,30,41,30,4.5,2.9,3.1],["3-object-sensitive+2-heap","spring","both",3.05,8.28,40,122,331,122,16.4,13.7,16.0],["3-object-sensitive+3-heap","luindex","both",1.93,3.53,15,29,53,29,5.3,2.7,3.0],["3-object-sensitive+3-heap","eclipse","both",2.43,5.38,21,51,113,51,7.8,5.1,5.9],["3-object-sensitive+3-heap","batik","both",4.37,null,380,1659,null,1659,162.3,null,183.3],["3-object-sensitive+3-heap","h2o","both",3.84,null,294,1130,null,1130,144.6,null,202.1],["3-object-sensitive+3-heap","xalan","both",1.67,2.33,18,30,42,30,4.7,2.9,3.1],["3-object-sensitive+3-heap","spring","both",3.18,8.49,39,124,331,124,17.9,13.7,16.0],["4-object-sensitive+4-heap","luindex","both",1.87,3.47,15,28,52,28,5.7,2.6,2.9],["4-object-sensitive+4-heap","eclipse","both",2.33,5.24,21,49,110,49,8.7,4.8,5.5],["4-object-sensitive+4-heap","batik","neither",null,null,null,null,null,null,null,null,null],["4-object-sensitive+4-heap","h2o","neither",null,null,null,null,null,null,null,null,null],["4-object-sensitive+4-heap","xalan","both",1.58,2.16,19,30,41,30,5.1,2.9,3.1],["4-object-sensitive+4-heap","spring","both",2.83,7.37,35,99,258,99,16.0,10.8,12.5],["adaptive-2-object-sensitive+heap","luindex","both",2.02,2.7,40,81,108,81,7.8,5.4,6.3],["adaptive-2-object-sensitive+heap","eclipse","both",2.47,5.69,104,257,592,257,19.1,21.1,26.1],["adaptive-2-object-sensitive+heap","batik","both",4.29,null,188,806,null,806,62.8,null,88.7],["adaptive-2-object-sensitive+heap","h2o","both",2.29,2.38,181,415,431,415,29.7,38.5,41.3],["adaptive-2-object-sensitive+heap","xalan","both",1.76,1.95,37,65,72,65,7.0,4.4,4.8],["adaptive-2-object-sensitive+heap","spring","both",3.63,null,481,1744,null,1744,57.6,null,87.9],["sticky-2-object-sensitive","luindex","neither",null,null,null,null,null,null,null,null,null],["sticky-2-object-sensitive","eclipse","neither",null,null,null,null,null,null,null,null,null],["sticky-2-object-sensitive","batik","neither",null,null,null,null,null,null,null,null,null],["sticky-2-object-sensitive","h2o","neither",null,null,null,null,null,null,null,null,null],["sticky-2-object-sensitive","xalan","neither",null,null,null,null,null,null,null,null,null],["sticky-2-object-sensitive","spring","neither",null,null,null,null,null,null,null,null,null],["selective-2-object-sensitive+heap","luindex","both",1.95,1.95,630,1226,1226,1402,42.6,37.0,45.5],["selective-2-object-sensitive+heap","eclipse","neither",null,null,null,null,null,null,null,null,null],["selective-2-object-sensitive+heap","batik","neither",null,null,null,null,null,null,null,null,null],["selective-2-object-sensitive+heap","h2o","flonly",null,null,904,null,null,null,76.4,null,null],["selective-2-object-sensitive+heap","xalan","both",1.46,1.46,248,362,362,437,22.5,18.5,22.2],["selective-2-object-sensitive+heap","spring","neither",null,null,null,null,null,null,null,null,null],["partitioned-2-object-sensitive+heap","luindex","both",2.02,2.66,41,83,109,83,7.8,5.4,6.3],["partitioned-2-object-sensitive+heap","eclipse","both",2.36,5.62,107,253,601,253,18.7,21.1,26.1],["partitioned-2-object-sensitive+heap","batik","both",4.11,null,194,797,null,797,62.8,null,88.8],["partitioned-2-object-sensitive+heap","h2o","both",2.28,2.37,180,410,427,410,29.8,38.4,41.2],["partitioned-2-object-sensitive+heap","xalan","both",1.76,1.92,37,65,71,65,6.9,4.3,4.9],["partitioned-2-object-sensitive+heap","spring","both",3.44,null,476,1636,null,1636,57.7,null,88.5]]};
+const fams = DATA.fams, ds = DATA.ds;
+const M = {}; DATA.cells.forEach(c => M[c[0]+"|"+c[1]] = c);   // c=[fam,ds,status,sp_best,sp_np,fl,best,sfnp,sfpl,fl_rss,sfnp_rss,sfpl_rss]
+const B = DATA.builds;   // family -> [fl_s, sfnp_s, sfpl_s, fl_rss_gb, sfnp_rss_gb]  (compile, once per family)
+
+// headline text per Soufflé baseline (precomputed from the data)
+const CAP = {
+  tuned:  {med:"2.4×", rng:"1.4–5.7×",  n:118, what:"Soufflé with DOOP's hand-tuned join orders"},
+  untuned:{med:"3.6×", rng:"1.3–17.8×", n:98,  what:"Soufflé without hand-tuning"}
+};
+
+// blue sequential ramp; band() maps a speedup to a ramp step (banded for legibility)
+const RAMP = ["--b1","--b2","--b3","--b4","--b5","--b6"];
+const LIGHT_TEXT_FROM = 3;   // ramp step >= this uses white text
+function band(v, mode){
+  if(mode==='tuned') return v<1.5?0 : v<2?1 : v<2.5?2 : v<3.5?3 : v<4.5?4 : 5;
+  return               v<2?0   : v<3?1 : v<5?2   : v<8?3   : v<12?4  : 5;   // untuned (wider range)
+}
+
+let mode='tuned';
+function render(){
+  // caption
+  const c=CAP[mode];
+  document.getElementById('cap').innerHTML =
+    `Run-time speedup of FlowLog over ${c.what}. ` +
+    `<span class="big"><b>Median ${c.med}</b>, range <b>${c.rng}</b></span>, faster on all <b>${c.n}</b> cells both engines finished.`;
+
+  // grid — each cell: speedup (blue) · FlowLog only (this Soufflé config didn't
+  // finish, green) · both-DNF (FlowLog didn't finish either, gray "—")
+  let h = "<tr><th class='fam'></th>" + ds.map(d=>`<th>${d}</th>`).join("") + "</tr>";
+  for(const f of fams){
+    h += `<tr><th class='fam'>${f}</th>`;
+    for(const d of ds){
+      const c = M[f+"|"+d];
+      if(!c){ h+="<td></td>"; continue; }
+      const fl=c[5], sf = (mode==='tuned'? c[8] : c[7]);   // sfpl=tuned, sfnp=untuned
+      let cell;
+      if(fl && sf){                                        // both finished → speedup
+        const v=sf/fl, bi=band(v,mode);
+        cell=`style="background:var(${RAMP[bi]});color:${bi>=LIGHT_TEXT_FROM?'#fff':'#0b0b0b'}">${v.toFixed(1)}×`;
+      } else if(fl){                                       // FlowLog finished, this Soufflé didn't
+        cell=`style="background:var(--good);color:#fff">FL<span class='sub'>SF ✗</span>`;
+      } else {                                             // neither finished
+        cell=`style="background:var(--neutral);color:var(--neutral-ink)">—`;
+      }
+      h+=`<td data-k="${f}|${d}" ${cell}</td>`;
+    }
+    h+="</tr>";
+  }
+  document.getElementById('hm').innerHTML=h;
+
+  // ramp legend
+  const labs = mode==='tuned'? ["1.5","2","2.5","3.5","4.5","5.5+"] : ["2","3","5","8","12","12+"];
+  document.getElementById('ramp').innerHTML =
+    "faster →&nbsp;" + RAMP.map((r,i)=>`<i style="background:var(${r})" title="${labs[i]}×"></i>`).join("");
+}
+function setMode(m){
+  mode=m;
+  mTuned.setAttribute('aria-pressed', m==='tuned');
+  mUntuned.setAttribute('aria-pressed', m==='untuned');
+  render();
+}
+mTuned.onclick=()=>setMode('tuned');
+mUntuned.onclick=()=>setMode('untuned');
+
+// hover tooltip: raw seconds per engine
+const tip=document.getElementById('tip'), hm=document.getElementById('hm');
+hm.addEventListener('mousemove',e=>{
+  const td=e.target.closest('td[data-k]'); if(!td){tip.style.opacity=0;return;}
+  const c=M[td.dataset.k]; if(!c){tip.style.opacity=0;return;}
+  const [f,d,st,sb,snp,fl,best,sfnp,sfpl,flr,snpr,splr]=c;
+  const bld=B[f]||[];
+  let b=`<b>${f}</b> · <span class="k">${d}</span>`;
+  if(st==='both'){
+    b+=`<br><span class="th">run</span> FlowLog <b>${fl}s</b> · Soufflé hand-tuned ${sfpl??'✗'}s · non-hand-tuned ${sfnp??'✗'}s`;
+    b+=`<br><span class="th">peak RAM</span> FlowLog ${flr??'?'} GB · SF ${(snpr??splr)??'?'} GB`;
+    b+=`<br><span class="th">speedup</span> <b>${sb}×</b> vs best${snp?` · ${snp}× vs no-plan`:''}`;
+  } else if(st==='flonly'){
+    b+=`<br><span class="th">run</span> FlowLog <b>${fl}s</b> · Soufflé did not finish`;
+    b+=`<br><span class="th">peak RAM</span> FlowLog ${flr??'?'} GB`;
+  } else {
+    b+=`<br>both engines did not finish (over ~450 GB)`;
+  }
+  b+=`<br><span class="th">compile</span> FlowLog ${bld[0]??'?'}s · SF ${bld[1]??'?'}s <span class="dim">(once/family)</span>`;
+  tip.innerHTML=b; tip.style.opacity=1;
+  let x=e.clientX+14, y=e.clientY+14;
+  if(x+290>innerWidth)x=e.clientX-290; if(y+96>innerHeight)y=e.clientY-96;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+});
+hm.addEventListener('mouseleave',()=>tip.style.opacity=0);
+
+// When embedded in the FlowLog site (same-origin iframe): (1) mirror the site's
+// light/dark toggle onto our root; (2) hide our own title/caption — the page
+// already provides them.
+(function(){
+  const embedded = window.parent !== window;
+  if(embedded) document.querySelector('.wrap').classList.add('embedded');
+  function sync(){
+    try{
+      const t = window.parent.document.documentElement.getAttribute('data-theme');
+      if(t) document.documentElement.setAttribute('data-theme', t);
+    }catch(e){}
+  }
+  if(embedded){
+    sync();
+    try{ new MutationObserver(sync).observe(window.parent.document.documentElement,
+      {attributes:true, attributeFilter:['data-theme']}); }catch(e){}
+    // size our own iframe to exactly fit the content. Measure the content box
+    // (.wrap) — documentElement.scrollHeight is clamped to the iframe's own
+    // height, so it can never shrink; getBoundingClientRect gives the real height.
+    const fit=()=>{ try{ const h=document.querySelector('.wrap').getBoundingClientRect().height; window.frameElement.style.height=Math.ceil(h)+6+'px'; }catch(e){} };
+    fit(); [120,400,900].forEach(t=>setTimeout(fit,t));   // refit as fonts/layout settle
+    window.addEventListener('load', fit);
+    window.addEventListener('resize', fit);
+    document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>setTimeout(fit,0)));
+  }
+})();
+
+setMode('tuned');
+</script>
