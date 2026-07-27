@@ -21,15 +21,15 @@ How fast <FL/> runs the DOOP Java points-to analyses, compared with Soufflé.
   <dt>Workload</dt>
   <dd>24 context-sensitive points-to analyses × 6 DaCapo Java programs (luindex, eclipse, batik, h2o, xalan, spring).</dd>
   <dt>Measured</dt>
-  <dd>Run time to fixpoint via <code>.printsize</code> (no output serialization), median of 3 runs.</dd>
+  <dd>Run time to fixpoint via <code>.printsize</code> (no output serialization) and peak memory (RSS), median of 3 runs.</dd>
   <dt>Platform</dt>
   <dd>AMD EPYC 7763 (Milan), 32 cores / 64 threads, 503 GB RAM, facts on ext4. Both engines run at 32 threads.</dd>
 </dl>
 
 <div className="bench-stats">
-  <div><div className="n">up to 5.7×</div><div className="l">vs hand-tuned Soufflé</div></div>
-  <div><div className="n">up to 17.8×</div><div className="l">vs non-hand-tuned Soufflé</div></div>
+  <div><div className="n">up to 5.7×</div><div className="l">faster than hand-tuned Soufflé</div></div>
   <div><div className="n">118 / 118</div><div className="l">faster, never slower</div></div>
+  <div><div className="n">~10% less</div><div className="l">peak memory (geomean)</div></div>
 </div>
 
 <iframe
