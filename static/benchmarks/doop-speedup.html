@@ -12,20 +12,21 @@
     --panel:#ffffff;
     --ink:#1c2733; --ink2:#4a5560; --muted:#7a8894;
     --border:#e6ecf1;          /* site table/toc border */
-    --good:#5f2d12;            /* FlowLog rust accent — "FlowLog only" win */
-    --neutral:#eaeff3; --neutral-ink:#8a97a3;   /* both DNF */
+    --neutral:#eaeff3; --neutral-ink:#8a97a3;   /* N/A cells (FL✓ / neither) */
     /* sequential ramp built from the FlowLog brand blue #0087B9 */
     --b1:#dceef7; --b2:#aed9ec; --b3:#72c0e0; --b4:#2ea0c9; --b5:#0087b9; --b6:#0a6a90;
+    /* MEMORY ramp — FlowLog "wood" (rust/brown); darker = FlowLog leaner */
+    --w1:#f6e2cb; --w2:#e8c199; --w3:#d99a5c; --w4:#c2703a; --w5:#8f4f22; --w6:#5f2d12;
   }
   @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
     color-scheme:dark; --plane:#161c25; --panel:#1c222c;
     --ink:#e6ebf0; --ink2:#a0b3c2; --muted:#7c8b99; --border:#243042;
-    --good:#d2824b; --neutral:#222b38; --neutral-ink:#7c8b99;
+    --neutral:#222b38; --neutral-ink:#8ea0b0;
   }}
   :root[data-theme="dark"]{
     color-scheme:dark; --plane:#161c25; --panel:#1c222c;
     --ink:#e6ebf0; --ink2:#a0b3c2; --muted:#7c8b99; --border:#243042;
-    --good:#d2824b; --neutral:#222b38; --neutral-ink:#7c8b99;
+    --neutral:#222b38; --neutral-ink:#8ea0b0;
   }
   html,body{margin:0; background:var(--plane)}
   .wrap{                       /* centered content column */
@@ -78,10 +79,13 @@
   <p class="cap" id="cap"></p>
 
   <div class="toolbar">
-    <span>speedup baseline</span>
-    <span class="seg" role="group" aria-label="baseline">
-      <button id="mTuned" aria-pressed="true">hand-tuned Soufflé</button>
-      <button id="mUntuned" aria-pressed="false">non-hand-tuned Soufflé</button>
+    <span class="seg" role="group" aria-label="metric">
+      <button id="tTime" aria-pressed="true">run time</button>
+      <button id="tMem" aria-pressed="false">peak memory</button>
+    </span>
+    <span class="seg" id="baselineSeg" role="group" aria-label="baseline">
+      <button id="mTuned" aria-pressed="true">vs hand-tuned</button>
+      <button id="mUntuned" aria-pressed="false">vs non-hand-tuned</button>
     </span>
   </div>
 
@@ -89,8 +93,8 @@
 
   <div class="legend">
     <span class="ramp" id="ramp"></span>
-    <span><span class="sw" style="background:var(--good)"></span>FlowLog only (Soufflé did not finish)</span>
-    <span><span class="sw" style="background:var(--neutral)"></span>neither finished (out of memory or 30-min timeout)</span>
+    <span><span class="sw" style="background:var(--neutral)"></span><b>FL&nbsp;✓</b> only FlowLog finished (Soufflé ran out of RAM / timed out)</span>
+    <span><span class="sw" style="background:var(--neutral)"></span><b>—</b> neither engine finished</span>
   </div>
 
   <p class="foot"><span class="foot-cfg">24 families × 6 DaCapo programs · FlowLog (<code>-w32</code>) vs Soufflé 2.5 (<code>-j32</code>) · run time via <code>.printsize</code>, median of 3 · AMD EPYC 7763, 32 cores, 503 GB, ext4. </span><span class="foot-hint">Hover a cell for run &amp; compile times and peak RAM.</span></p>
@@ -109,39 +113,66 @@ const CAP = {
   untuned:{med:"3.6×", rng:"1.3–17.8×", n:98,  what:"Soufflé without hand-tuning"}
 };
 
-// blue sequential ramp; band() maps a speedup to a ramp step (banded for legibility)
+// RUN-TIME: blue sequential ramp; band() maps a speedup to a ramp step.
 const RAMP = ["--b1","--b2","--b3","--b4","--b5","--b6"];
 const LIGHT_TEXT_FROM = 3;   // ramp step >= this uses white text
 function band(v, mode){
   if(mode==='tuned') return v<1.5?0 : v<2?1 : v<2.5?2 : v<3.5?3 : v<4.5?4 : 5;
   return               v<2?0   : v<3?1 : v<5?2   : v<8?3   : v<12?4  : 5;   // untuned (wider range)
 }
+// MEMORY: single-hue "wood" ramp (FlowLog rust/brown). Ratio = FlowLog ÷ Soufflé RAM.
+// Darker wood = FlowLog leaner (bigger memory win), consistent with darker-blue = faster.
+const MEMRAMP = ["--w6","--w5","--w4","--w3","--w2","--w1"];   // leaner → heavier, for the legend
+function memColor(v){
+  if(v<0.55) return ["--w6","#fff"];        // FlowLog ≤55% of Soufflé — big win
+  if(v<0.7)  return ["--w5","#fff"];
+  if(v<0.85) return ["--w4","#fff"];
+  if(v<1.0)  return ["--w3","#3a1e0c"];     // still leaner
+  if(v<1.3)  return ["--w2","#4a3626"];     // ≈ even / slightly heavier
+  return                ["--w1","#4a3626"];  // FlowLog notably heavier
+}
+// memory headline per Soufflé baseline
+const MEMCAP = {
+  tuned:  {med:"0.79×", what:"hand-tuned Soufflé",     note:"a higher fixed overhead on small analyses (rust) but markedly leaner on the large ones (blue, median 0.69× on the heaviest)"},
+  untuned:{med:"1.06×", what:"non-hand-tuned Soufflé", note:"about even overall — heavier on small analyses, leaner on the large ones"}
+};
 
-let mode='tuned';
+let metric='time', mode='tuned';
 function render(){
+  const mem = metric==='mem';
   // caption
-  const c=CAP[mode];
-  document.getElementById('cap').innerHTML =
-    `Run-time speedup of FlowLog over ${c.what}. ` +
-    `<span class="big"><b>Median ${c.med}</b>, range <b>${c.rng}</b></span>, faster on all <b>${c.n}</b> cells both engines finished.`;
+  if(mem){
+    const m=MEMCAP[mode];
+    document.getElementById('cap').innerHTML =
+      `Peak memory, FlowLog ÷ ${m.what} (32 threads). ` +
+      `<span class="big"><b>Median ${m.med}</b></span> — ${m.note}. Below 1× (blue) = FlowLog leaner.`;
+  } else {
+    const c=CAP[mode];
+    document.getElementById('cap').innerHTML =
+      `Run-time speedup of FlowLog over ${c.what}. ` +
+      `<span class="big"><b>Median ${c.med}</b>, range <b>${c.rng}</b></span>, faster on all <b>${c.n}</b> cells both engines finished.`;
+  }
 
-  // grid — each cell: speedup (blue) · FlowLog only (this Soufflé config didn't
-  // finish, green) · both-DNF (FlowLog didn't finish either, gray "—")
+  // grid — a value cell (colored), a green "FlowLog only" (Soufflé DNF), or gray "—" (neither)
   let h = "<tr><th class='fam'></th>" + ds.map(d=>`<th>${d}</th>`).join("") + "</tr>";
   for(const f of fams){
     h += `<tr><th class='fam'>${f}</th>`;
     for(const d of ds){
       const c = M[f+"|"+d];
       if(!c){ h+="<td></td>"; continue; }
-      const fl=c[5], sf = (mode==='tuned'? c[8] : c[7]);   // sfpl=tuned, sfnp=untuned
+      const fl=c[5];
+      const sfRun = mode==='tuned'? c[8]  : c[7];     // run seconds: sfpl / sfnp
+      const sfMem = mode==='tuned'? c[11] : c[10];    // peak RSS:    sfpl / sfnp
+      const flr   = c[9];                             // FlowLog RSS
       let cell;
-      if(fl && sf){                                        // both finished → speedup
-        const v=sf/fl, bi=band(v,mode);
-        cell=`style="background:var(${RAMP[bi]});color:${bi>=LIGHT_TEXT_FROM?'#fff':'#0b0b0b'}">${v.toFixed(1)}×`;
-      } else if(fl){                                       // FlowLog finished, this Soufflé didn't
-        cell=`style="background:var(--good);color:#fff">FL<span class='sub'>SF ✗</span>`;
-      } else {                                             // neither finished
-        cell=`style="background:var(--neutral);color:var(--neutral-ink)">—`;
+      if(mem){
+        if(fl && flr && sfMem){ const v=flr/sfMem, [bg,fg]=memColor(v); cell=`style="background:var(${bg});color:${fg}">${v.toFixed(1)}×`; }
+        else if(fl){ cell=`style="background:var(--neutral);color:var(--neutral-ink)">FL ✓<span class='sub'>SF ✗</span>`; }
+        else { cell=`style="background:var(--neutral);color:var(--neutral-ink)">—`; }
+      } else {
+        if(fl && sfRun){ const v=sfRun/fl, bi=band(v,mode); cell=`style="background:var(${RAMP[bi]});color:${bi>=LIGHT_TEXT_FROM?'#fff':'#0b0b0b'}">${v.toFixed(1)}×`; }
+        else if(fl){ cell=`style="background:var(--neutral);color:var(--neutral-ink)">FL ✓<span class='sub'>SF ✗</span>`; }
+        else { cell=`style="background:var(--neutral);color:var(--neutral-ink)">—`; }
       }
       h+=`<td data-k="${f}|${d}" ${cell}</td>`;
     }
@@ -149,17 +180,21 @@ function render(){
   }
   document.getElementById('hm').innerHTML=h;
 
-  // ramp legend
-  const labs = mode==='tuned'? ["1.5","2","2.5","3.5","4.5","5.5+"] : ["2","3","5","8","12","12+"];
-  document.getElementById('ramp').innerHTML =
-    "faster →&nbsp;" + RAMP.map((r,i)=>`<i style="background:var(${r})" title="${labs[i]}×"></i>`).join("");
+  // legend
+  const ramp=document.getElementById('ramp');
+  if(mem){
+    ramp.innerHTML = "FlowLog leaner&nbsp;" +
+      MEMRAMP.map(r=>`<i style="background:var(${r})"></i>`).join("") +
+      "&nbsp;heavier <span style='color:var(--muted)'>(darker = more RAM saved; &lt;1× = leaner than Soufflé)</span>";
+  } else {
+    const labs = mode==='tuned'? ["1.5","2","2.5","3.5","4.5","5.5+"] : ["2","3","5","8","12","12+"];
+    ramp.innerHTML = "faster →&nbsp;" + RAMP.map((r,i)=>`<i style="background:var(${r})" title="${labs[i]}×"></i>`).join("");
+  }
 }
-function setMode(m){
-  mode=m;
-  mTuned.setAttribute('aria-pressed', m==='tuned');
-  mUntuned.setAttribute('aria-pressed', m==='untuned');
-  render();
-}
+function setMetric(m){ metric=m; tTime.setAttribute('aria-pressed',m==='time'); tMem.setAttribute('aria-pressed',m==='mem'); render(); }
+function setMode(m){ mode=m; mTuned.setAttribute('aria-pressed',m==='tuned'); mUntuned.setAttribute('aria-pressed',m==='untuned'); render(); }
+tTime.onclick=()=>setMetric('time');
+tMem.onclick=()=>setMetric('mem');
 mTuned.onclick=()=>setMode('tuned');
 mUntuned.onclick=()=>setMode('untuned');
 
@@ -170,11 +205,15 @@ hm.addEventListener('mousemove',e=>{
   const c=M[td.dataset.k]; if(!c){tip.style.opacity=0;return;}
   const [f,d,st,sb,snp,fl,best,sfnp,sfpl,flr,snpr,splr]=c;
   const bld=B[f]||[];
+  const r2=(a,bb)=> (a!=null&&bb!=null)? (a/bb).toFixed(2)+'×' : '—';
   let b=`<b>${f}</b> · <span class="k">${d}</span>`;
   if(st==='both'){
     b+=`<br><span class="th">run</span> FlowLog <b>${fl}s</b> · Soufflé hand-tuned ${sfpl??'✗'}s · non-hand-tuned ${sfnp??'✗'}s`;
-    b+=`<br><span class="th">peak RAM</span> FlowLog ${flr??'?'} GB · SF ${(snpr??splr)??'?'} GB`;
-    b+=`<br><span class="th">speedup</span> <b>${sb}×</b> vs best${snp?` · ${snp}× vs no-plan`:''}`;
+    b+=`<br><span class="th">peak RAM</span> FlowLog ${flr??'?'} GB · hand-tuned ${splr??'?'} GB · non-hand-tuned ${snpr??'?'} GB`;
+    if(metric==='mem')
+      b+=`<br><span class="th">memory</span> <b>${r2(flr,splr)}</b> vs hand-tuned · ${r2(flr,snpr)} vs non-hand-tuned`;
+    else
+      b+=`<br><span class="th">speedup</span> <b>${sb}×</b> vs hand-tuned${snp?` · ${snp}× vs non-hand-tuned`:''}`;
   } else if(st==='flonly'){
     b+=`<br><span class="th">run</span> FlowLog <b>${fl}s</b> · Soufflé did not finish`;
     b+=`<br><span class="th">peak RAM</span> FlowLog ${flr??'?'} GB`;
