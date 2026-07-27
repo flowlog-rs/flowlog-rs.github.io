@@ -12,7 +12,7 @@ pub struct Config {
     pub bind_addr: SocketAddr,
     /// Path to the `flowlog-compiler` binary.
     pub compiler: PathBuf,
-    /// Path to the `flowlog-profile-viz` binary (FlowLog profile visualizer).
+    /// Path to the `flowlog-visualizer` binary (FlowLog profile visualizer).
     pub profile_viz: PathBuf,
     /// Base directory for the compile cache and per-request scratch dirs.
     pub work_dir: PathBuf,
@@ -26,7 +26,7 @@ pub struct Config {
     pub compile_timeout: Duration,
     /// Max wall-clock time for a single batch executable run.
     pub run_timeout: Duration,
-    /// Max wall-clock time for a single `flowlog-profile-viz` invocation.
+    /// Max wall-clock time for a single `flowlog-visualizer` invocation.
     pub profile_timeout: Duration,
     /// Max lifetime of an incremental WebSocket session.
     pub session_timeout: Duration,
@@ -89,7 +89,7 @@ impl Config {
         Ok(Config {
             bind_addr,
             compiler: PathBuf::from(env_string("FLOWLOG_COMPILER", "flowlog-compiler")),
-            profile_viz: PathBuf::from(env_string("FLOWLOG_PROFILE_VIZ", "flowlog-profile-viz")),
+            profile_viz: PathBuf::from(env_string("FLOWLOG_PROFILE_VIZ", "flowlog-visualizer")),
             work_dir,
             datasets_dir,
             allowed_origins,

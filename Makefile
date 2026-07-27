@@ -2,7 +2,7 @@
 # FlowLog Playground Server — automation
 #
 # First-time setup on a fresh CloudLab node:
-#   make            # clone flowlog + profile-visualizer, build everything,
+#   make            # clone + build flowlog (incl. the profile visualizer),
 #                   # start backend + tunnel detached, then print the HTTPS URL
 #                   # to use in playground.js
 #
@@ -28,12 +28,9 @@ FLOWLOG_BIN      := $(FLOWLOG_DIR)/target/release/flowlog-compiler
 ENV_MARKER       := $(FLOWLOG_DIR)/.env-done
 CARGO_ENV        := $(HOME)/.cargo/env
 
-# --- profile visualizer (external) ----------------------------------------
+# --- profile visualizer ---------------------------------------------------
 # Turns a profiled run's `program_log/` tree into a self-contained HTML report.
-PROFILE_VIZ_REPO   ?= https://github.com/flowlog-rs/profile-visualizer
-PROFILE_VIZ_BRANCH ?= main
-PROFILE_VIZ_DIR    ?= $(HOME)/profile-visualizer
-PROFILE_VIZ_BIN    := $(PROFILE_VIZ_DIR)/target/release/flowlog-profile-viz
+PROFILE_VIZ_BIN    := $(FLOWLOG_DIR)/target/release/flowlog-visualizer
 
 # --- this repo ------------------------------------------------------------
 SERVER_DIR       := $(CURDIR)/server
@@ -83,7 +80,7 @@ TUNNEL_URL_RE    := https://[a-z0-9-]+\.trycloudflare\.com
 .PHONY: help all setup env flowlog profile-viz server cloudflared \
         start stop status url logs run tunnel tunnel-setup local \
         monitor monitor-install monitor-uninstall \
-        update clean clean-flowlog clean-profile-viz dataset-tomcat doop
+        update clean clean-flowlog dataset-tomcat doop
 
 # Regenerate the playground's Doop program module (src/doopProgram.js) from the
 # editable src/doop.dl. Run after editing the program.
@@ -122,14 +119,13 @@ help:
 	@echo '  make setup           build everything, do not start anything'
 	@echo '  make env             only run flowlog env/env.sh (one-time)'
 	@echo '  make flowlog         only build flowlog-compiler'
-	@echo '  make profile-viz     only build flowlog-profile-viz'
+	@echo '  make profile-viz     only build flowlog-visualizer'
 	@echo '  make server          only build the playground server'
 	@echo '  make cloudflared     only download cloudflared'
 	@echo '  make dataset-tomcat  fetch the Doop/Tomcat dataset (~389MB, not in git)'
 	@echo '  make update          git-pull + rebuild'
 	@echo '  make clean           remove server/target'
 	@echo '  make clean-flowlog   wipe the flowlog checkout entirely'
-	@echo '  make clean-profile-viz  wipe the profile-visualizer checkout'
 	@echo ''
 	@echo 'Foreground (debugging):'
 	@echo '  make run             backend only, foreground'
@@ -167,15 +163,10 @@ $(FLOWLOG_BIN): | $(ENV_MARKER)
 	@echo '==> building flowlog-compiler (release)'
 	@bash -c 'source $(CARGO_ENV) 2>/dev/null || true; cd $(FLOWLOG_DIR) && cargo build --release'
 
-# 3b. Clone + build the profile visualizer. Reuses the toolchain installed by
-#     flowlog's env/env.sh (hence the $(ENV_MARKER) order-only prerequisite).
-$(PROFILE_VIZ_DIR):
-	@echo '==> cloning $(PROFILE_VIZ_REPO) ($(PROFILE_VIZ_BRANCH)) → $(PROFILE_VIZ_DIR)'
-	git clone --branch $(PROFILE_VIZ_BRANCH) $(PROFILE_VIZ_REPO) $(PROFILE_VIZ_DIR)
-
-$(PROFILE_VIZ_BIN): | $(PROFILE_VIZ_DIR) $(ENV_MARKER)
-	@echo '==> building flowlog-profile-viz (release)'
-	@bash -c 'source $(CARGO_ENV) 2>/dev/null || true; cd $(PROFILE_VIZ_DIR) && cargo build --release'
+# 3b. The visualizer is a flowlog workspace member, so the build above produces
+#     it alongside flowlog-compiler.
+$(PROFILE_VIZ_BIN): $(FLOWLOG_BIN)
+	@:
 
 # 4. Build the playground server. Independent of the compiler/visualizer at
 #    build time (only needed at runtime), so `make -j` can build in parallel.
@@ -480,13 +471,8 @@ update:
 		echo '==> pulling flowlog'; \
 		cd $(FLOWLOG_DIR) && git pull --ff-only; \
 	fi
-	@if [ -d $(PROFILE_VIZ_DIR) ]; then \
-		echo '==> pulling profile-visualizer'; \
-		cd $(PROFILE_VIZ_DIR) && git pull --ff-only; \
-	fi
 	@bash -c 'source $(CARGO_ENV) 2>/dev/null || true; \
 		cd $(FLOWLOG_DIR) && cargo build --release && \
-		cd $(PROFILE_VIZ_DIR) && cargo build --release && \
 		cd $(SERVER_DIR) && cargo build --release'
 	@$(MAKE) stop
 	@$(MAKE) start
@@ -496,6 +482,3 @@ clean:
 
 clean-flowlog:
 	rm -rf $(FLOWLOG_DIR)
-
-clean-profile-viz:
-	rm -rf $(PROFILE_VIZ_DIR)

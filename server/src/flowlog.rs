@@ -72,7 +72,7 @@ fn cache_key(program: &str, mode: Mode, profile: bool) -> String {
 ///
 /// When `profile` is set, the compiler embeds profiling instrumentation
 /// (`-P`); the resulting binary additionally writes a `program_log/` tree
-/// (`ops.json` + per-worker `time/` and `memory/` logs) into its run-time cwd.
+/// (`ops.json` + a per-worker `metrics/` log folder) into its run-time cwd.
 pub async fn compile(
     cfg: &Config,
     program: &str,
@@ -128,7 +128,7 @@ pub async fn compile(
     }
     if profile {
         // Bakes timely/differential logging into the binary; at run time it
-        // emits `program_log/{ops.json,time,memory}` (see `PROFILE_LOG_DIR`).
+        // emits `program_log/{ops.json,metrics}` (see `PROFILE_LOG_DIR`).
         cmd.arg("-P");
     }
     // String-heavy workloads (e.g. the Doop points-to analysis on Tomcat) join
@@ -237,10 +237,10 @@ pub async fn render_report(cfg: &Config, work: &Path) -> Result<String, FlowlogE
 }
 
 /// Render the `program_log/` tree a profiled run left in `work` into a single
-/// self-contained HTML report at `out_html`, using `flowlog-profile-viz`.
+/// self-contained HTML report at `out_html`, using `flowlog-visualizer`.
 ///
 /// The visualizer takes the static plan graph (`ops.json`) plus the per-worker
-/// `time/` and `memory/` log folders and embeds everything into one HTML file.
+/// `metrics/` log folder and embeds everything into one HTML file.
 async fn run_profile_viz(
     cfg: &Config,
     work: &Path,
@@ -253,9 +253,8 @@ async fn run_profile_viz(
     })?;
 
     let ops = log_dir.join("ops.json");
-    let time = log_dir.join("time");
-    let memory = log_dir.join("memory");
-    for (path, what) in [(&ops, "ops.json"), (&time, "time/"), (&memory, "memory/")] {
+    let metrics = log_dir.join("metrics");
+    for (path, what) in [(&ops, "ops.json"), (&metrics, "metrics/")] {
         if !fs::try_exists(path).await? {
             // In an incremental session the per-timestamp snapshots only appear
             // after a commit, so this is the usual "nothing to report yet" path.
@@ -267,13 +266,11 @@ async fn run_profile_viz(
     }
 
     let mut cmd = Command::new(&cfg.profile_viz);
-    cmd.arg("-p")
+    cmd.arg("--ops")
         .arg(&ops)
-        .arg("-t")
-        .arg(&time)
-        .arg("-m")
-        .arg(&memory)
-        .arg("-o")
+        .arg("--metrics")
+        .arg(&metrics)
+        .arg("--out")
         .arg(out_html);
 
     // Spawn failures (e.g. the visualizer binary isn't installed) surface here
