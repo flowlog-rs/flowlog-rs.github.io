@@ -44,18 +44,20 @@ const KEY_FEATURES = [
   },
 ];
 
+// Newest first.
 const PUBLICATIONS = [
+  {
+    title:
+      'FlowLog: Re-thinking Datalog for Fast and Extensible Static Analysis',
+    authors: 'Z. Yu, H. Zhao, W. Hou, P. Koutris',
+    venue: 'SPLASH/ISSTA 2026 (Tool Demo)',
+    href: '/papers/flowlog-demo.pdf',
+  },
   {
     title: 'FlowLog: Efficient and Extensible Datalog via Incrementality',
     authors: 'H. Zhao, Z. Yu, S. Rao, S. Frisk, Z. Fan, P. Koutris',
     venue: 'VLDB 2026',
     href: 'https://www.vldb.org/pvldb/vol19/p361-zhao.pdf',
-  },
-  {
-    title: 'Evaluating Datalog over Semirings: A Grounding-based Approach',
-    authors: 'H. Zhao, S. Deep, P. Koutris, S. Roy, V. Tannen',
-    venue: 'PODS 2024',
-    href: 'https://dl.acm.org/doi/10.1145/3651591',
   },
   {
     title: 'Evaluating Datalog via Structure-Aware Rewriting',
@@ -64,10 +66,10 @@ const PUBLICATIONS = [
     href: 'https://ceur-ws.org/Vol-3801/short4.pdf',
   },
   {
-    title: 'Predicate Transfer: Efficient Pre-Filtering on Multi-Join Queries',
-    authors: 'Y. Yang, H. Zhao, X. Yu, P. Koutris',
-    venue: 'CIDR 2024',
-    href: 'https://www.cidrdb.org/cidr2024/papers/p22-yang.pdf',
+    title: 'Evaluating Datalog over Semirings: A Grounding-based Approach',
+    authors: 'H. Zhao, S. Deep, P. Koutris, S. Roy, V. Tannen',
+    venue: 'PODS 2024',
+    href: 'https://dl.acm.org/doi/10.1145/3651591',
   },
 ];
 
@@ -135,10 +137,11 @@ export default function Home() {
 
         <section className={styles.contentWrapper}>
           <div className={styles.highlightBox}>
-            <strong>News:</strong> FlowLog has been accepted to{' '}
-            <strong>VLDB 2026</strong>. Read{' '}
+            <strong>News:</strong> Our{' '}
+            <strong>tool demonstration</strong> paper has been accepted at{' '}
+            <strong>SPLASH/ISSTA 2026</strong>. Read{' '}
             <a
-              href="https://www.vldb.org/pvldb/vol19/p361-zhao.pdf"
+              href="/papers/flowlog-demo.pdf"
               target="_blank"
               rel="noreferrer">
               it
