@@ -110,10 +110,11 @@ help:
 	@echo '  make logs            tail -f backend + cloudflared logs'
 	@echo '  make tunnel-setup    one-time steps for a persistent named tunnel URL'
 	@echo ''
-	@echo 'Uptime alerts (emails you if the backend goes down):'
+	@echo 'Uptime monitoring (armed automatically by make start):'
 	@echo '  make monitor         run one health check now (prints UP/DOWN)'
 	@echo '  make monitor-install install the every-5-min cron watchdog'
 	@echo '  make monitor-uninstall  remove the cron watchdog'
+	@echo '                       (add a ping URL for email alerts; see monitor-install)'
 	@echo ''
 	@echo 'Build / setup:'
 	@echo '  make setup           build everything, do not start anything'
@@ -271,12 +272,14 @@ start: $(FLOWLOG_BIN) $(PROFILE_VIZ_BIN) $(SERVER_BIN) $(CLOUDFLARED_BIN) $(TOMC
 	    echo; \
 	    if [ "$(MONITOR_AUTO)" = "1" ]; then \
 	      if [ -n "$(HC_PING_URL)" ]; then printf '%s\n' '$(HC_PING_URL)' > $(RUN_DIR)/hc-ping-url; fi; \
-	      if [ -s $(RUN_DIR)/hc-ping-url ]; then \
-	        ( crontab -l 2>/dev/null | grep -vF '$(MONITOR_TAG)'; echo "$(MONITOR_CRON)" ) | crontab - 2>/dev/null \
-	          && echo "  ✓ uptime monitor armed — emails on downtime (make monitor-uninstall to stop)"; \
+	      if ( crontab -l 2>/dev/null | grep -vF '$(MONITOR_TAG)'; echo "$(MONITOR_CRON)" ) | crontab - 2>/dev/null; then \
+	        echo "  ✓ uptime monitor armed — health check every 5 min  log: $(RUN_DIR)/monitor.log"; \
+	        if [ ! -s $(RUN_DIR)/hc-ping-url ]; then \
+	          echo "    logging only; email alerts stay off until you add a ping URL:"; \
+	          echo "      echo '<healthchecks.io ping URL>' > $(RUN_DIR)/hc-ping-url"; \
+	        fi; \
 	      else \
-	        echo "  uptime monitor: add a ping URL to enable email alerts, then it self-arms:"; \
-	        echo "    echo '<healthchecks.io ping URL>' > $(RUN_DIR)/hc-ping-url"; \
+	        echo "  ! could not install the cron watchdog — run 'make monitor' by hand to check"; \
 	      fi; \
 	    fi; \
 	    echo; \
@@ -365,8 +368,11 @@ tunnel-setup: $(CLOUDFLARED_BIN)
 # Healthchecks.io URL on success; if pings stop (tunnel/backend/node down) it
 # emails you. Free, needs no mail server, and survives the changing quick-URL.
 #
-# `make start` auto-arms this watchdog (set MONITOR_AUTO=0 to opt out). The only
-# machine-specific bit is the Healthchecks.io ping URL, resolved in this order:
+# `make start` always arms this watchdog (set MONITOR_AUTO=0 to opt out), so every
+# machine keeps a health-check history in .run/monitor.log even with no ping URL
+# configured. It alerts but never restarts: a DOWN backend stays down until you
+# run `make start` again. The ping URL — the only machine-specific bit, and all
+# that email alerting needs — is resolved in this order:
 #   1. HC_PING_URL (make variable / env) — if set, it's written to .run/hc-ping-url
 #   2. .run/hc-ping-url (per-machine file; NOT in git)
 # Zero-touch on every new machine: set HC_PING_URL below so it's carried in git.
