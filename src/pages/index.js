@@ -51,7 +51,7 @@ const PUBLICATIONS = [
       'FlowLog: Re-thinking Datalog for Fast and Extensible Static Analysis',
     authors: 'Z. Yu, H. Zhao, W. Hou, P. Koutris',
     venue: 'SPLASH/ISSTA 2026 (Tool Demo)',
-    href: '/papers/flowlog-demo.pdf',
+    href: 'https://arxiv.org/pdf/2607.23971',
   },
   {
     title: 'FlowLog: Efficient and Extensible Datalog via Incrementality',
@@ -141,7 +141,7 @@ export default function Home() {
             <strong>tool demonstration</strong> paper has been accepted at{' '}
             <strong>SPLASH/ISSTA 2026</strong>. Read{' '}
             <a
-              href="/papers/flowlog-demo.pdf"
+              href="https://arxiv.org/pdf/2607.23971"
               target="_blank"
               rel="noreferrer">
               it
