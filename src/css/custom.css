@@ -287,6 +287,112 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
+/* ─── Engineering-note flow diagrams ─── */
+
+.engineering-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0.55rem;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  overflow-x: auto;
+  border: 1px solid rgba(0, 135, 185, 0.16);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at top left, rgba(0, 135, 185, 0.08), transparent 42%),
+    var(--flowlog-highlight-bg);
+  box-shadow: 0 4px 14px rgba(15, 60, 100, 0.05);
+}
+
+.engineering-flow__step {
+  display: flex;
+  flex: 1 0 8rem;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 4.25rem;
+  padding: 0.7rem 0.8rem;
+  text-align: center;
+  border: 1px solid rgba(0, 135, 185, 0.18);
+  border-radius: 9px;
+  background: var(--ifm-background-surface-color);
+}
+
+.engineering-flow__step span {
+  margin-bottom: 0.15rem;
+  color: var(--ifm-color-emphasis-600);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.engineering-flow__step strong {
+  color: var(--ifm-font-color-base);
+  font-size: 0.92rem;
+}
+
+.engineering-flow__arrow {
+  display: flex;
+  flex: 0 0 5.5rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--flowlog-accent-blue);
+}
+
+.engineering-flow__arrow::after {
+  content: '→';
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.engineering-flow__arrow span {
+  margin-bottom: 0.15rem;
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.engineering-flow--compact .engineering-flow__step {
+  flex-basis: 6.5rem;
+  min-height: 3.5rem;
+}
+
+.engineering-flow--compact .engineering-flow__arrow {
+  flex-basis: 2.6rem;
+}
+
+[data-theme='dark'] .engineering-flow {
+  border-color: rgba(141, 207, 255, 0.2);
+  background:
+    radial-gradient(circle at top left, rgba(141, 207, 255, 0.1), transparent 42%),
+    var(--flowlog-highlight-bg);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 760px) {
+  .engineering-flow {
+    flex-direction: column;
+    align-items: stretch;
+    overflow-x: visible;
+  }
+
+  .engineering-flow__step {
+    flex-basis: auto;
+  }
+
+  .engineering-flow__arrow,
+  .engineering-flow--compact .engineering-flow__arrow {
+    flex-basis: 1.8rem;
+  }
+
+  .engineering-flow__arrow::after {
+    content: '↓';
+  }
+}
+
 /* ─── Breadcrumbs ─── */
 
 .breadcrumbs__item--active .breadcrumbs__link {
