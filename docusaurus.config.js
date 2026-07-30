@@ -37,12 +37,7 @@ const config = {
           sidebarPath: require.resolve('./sidebars.js'),
           routeBasePath: 'tutorial',
         },
-        blog: {
-          routeBasePath: 'engineering-notes',
-          showReadingTime: true,
-          blogTitle: 'Engineering Notes',
-          blogDescription: 'Investigations into FlowLog, Differential Dataflow, and Datalog systems.',
-        },
+        blog: false,
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
@@ -78,11 +73,6 @@ const config = {
             position: 'left',
           },
           {
-            to: '/engineering-notes',
-            label: 'Engineering Notes',
-            position: 'left',
-          },
-          {
             href: 'https://github.com/flowlog-rs/flowlog',
             label: 'GitHub',
             position: 'right',
@@ -112,10 +102,6 @@ const config = {
               {
                 label: 'Tutorial',
                 to: '/tutorial/intro',
-              },
-              {
-                label: 'Engineering Notes',
-                to: '/engineering-notes',
               },
             ],
           },
