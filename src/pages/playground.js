@@ -188,7 +188,7 @@ MemoryAlias(x, x) :- Assign(x, y).`,
   },
 ];
 
-const DEFAULT_SERVER = 'https://banana-search-entertainment-eleven.trycloudflare.com';
+const DEFAULT_SERVER = 'https://interviews-plane-mpegs-reveals.trycloudflare.com';
 
 // Resolve the backend base URL: `?server=<url>` query param wins (used by
 // `make local` to point at a local backend, e.g. `?server=http://localhost:8088`),
