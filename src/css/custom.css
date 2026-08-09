@@ -576,6 +576,34 @@
 
 .bench-more { margin-top: 26px; color: var(--ifm-blockquote-color); font-size: 14px; font-style: italic; }
 
+/* benchmarks page: CI-sponsorship callout */
+.bench-help {
+  position: relative;
+  margin-top: 34px;
+  padding: 26px 30px 24px;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 18px;
+  background:
+    linear-gradient(155deg, var(--flowlog-highlight-bg) 0%, transparent 78%),
+    var(--ifm-background-color);
+  overflow: hidden;
+}
+.bench-help::before {                 /* brand accent edge, as on .bench-card */
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: linear-gradient(var(--flowlog-accent-blue), var(--ifm-color-primary));
+}
+.bench-help .bh-title {
+  font-family: var(--flowlog-brand-font);
+  font-size: 20px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2;
+}
+.bench-help p {
+  font-size: 14.5px; line-height: 1.6;
+  color: var(--ifm-blockquote-color);
+  max-width: 640px;
+  margin: 12px 0 0;
+}
+
 /* benchmark page: labeled spec list (engines / workload / measured / platform) */
 .spec {
   display: grid;

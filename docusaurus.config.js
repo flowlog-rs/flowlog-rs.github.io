@@ -73,6 +73,11 @@ const config = {
             position: 'left',
           },
           {
+            to: '/sponsor',
+            label: 'Sponsor',
+            position: 'left',
+          },
+          {
             href: 'https://github.com/flowlog-rs/flowlog',
             label: 'GitHub',
             position: 'right',
@@ -115,6 +120,10 @@ const config = {
               {
                 label: 'GitHub',
                 href: 'https://github.com/flowlog-rs/flowlog',
+              },
+              {
+                label: 'Sponsor',
+                to: '/sponsor',
               },
             ],
           },

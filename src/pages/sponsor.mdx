@@ -1,0 +1,52 @@
+---
+title: Sponsor FlowLog
+description: Support FlowLog's development and infrastructure
+---
+
+export const FL = () => <span className="flowlog"><span className="flow">Flow</span><span className="log">Log</span></span>;
+
+export const Mail = ({children}) => (
+  <a href="#contact" onClick={(e) => {
+    e.preventDefault();
+    window.location.href = 'mailto:' + ['zyu379', 'wisc.edu'].join('@');
+  }}>{children}</a>
+);
+
+<div className="bench-wrap">
+
+# Sponsor <FL/>
+
+<p className="bench-lede">
+<FL/> is an <b>open-source</b> (Apache-2.0) research project from UW–Madison:
+an efficient, extensible, and scalable Datalog engine for incremental
+computation. Sponsor support helps keep the project moving. What we need
+right now:
+</p>
+
+<div className="bench-help">
+  <div className="bh-title">CI compute for regression testing</div>
+
+  <p>We want performance-sensitive pull requests to ship with a base-vs-head
+  run of the full <a href="/benchmarks">benchmark suite</a>, so regressions
+  are caught before they reach release. That takes hardware we hardly have.
+  What it takes:</p>
+
+  <dl className="spec">
+    <dt>CPU</dt><dd>32 cores or equivalent, x86-64 or arm64</dd>
+    <dt>Memory</dt><dd>128 GB or more</dd>
+    <dt>Usage</dt><dd>30 to 60 minute jobs, tens of hours per month to start, likely to grow</dd>
+    <dt>Integration</dt><dd>GitHub Actions runner, managed or self-hosted</dd>
+  </dl>
+
+  <p>Managed CI runners, cloud credits, and bare-metal hardware are all
+  equally welcome.</p>
+</div>
+
+<p className="bench-more">
+Sponsors are acknowledged on this site, in the repository, and in every
+report <FL/> publishes.
+Interested? <Mail>Reach us by email</Mail>.
+We'd love to talk.
+</p>
+
+</div>
