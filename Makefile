@@ -379,7 +379,7 @@ tunnel-setup: $(CLOUDFLARED_BIN)
 # ⚠ this repo is PUBLIC, so the URL would be visible (someone could spoof pings /
 # mask a real outage). Leave it empty to keep the URL private and instead run
 # `echo '<url>' > .run/hc-ping-url` once per machine.
-HC_PING_URL  ?=
+HC_PING_URL  ?= https://hc-ping.com/cd724b44-6663-45f1-b30e-2f39df37ebb9
 MONITOR_AUTO ?= 1
 MONITOR_TAG  := flowlog-playground-monitor
 MONITOR_CRON := */5 * * * * cd $(CURDIR) && bash scripts/monitor.sh >>$(RUN_DIR)/monitor.log 2>&1  \# $(MONITOR_TAG)
