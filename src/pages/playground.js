@@ -188,7 +188,7 @@ MemoryAlias(x, x) :- Assign(x, y).`,
   },
 ];
 
-const DEFAULT_SERVER = 'https://obviously-scholarship-jury-psychiatry.trycloudflare.com';
+const DEFAULT_SERVER = 'https://hey-gabriel-okay-postal.trycloudflare.com';
 
 // Resolve the backend base URL: `?server=<url>` query param wins (used by
 // `make local` to point at a local backend, e.g. `?server=http://localhost:8088`),
