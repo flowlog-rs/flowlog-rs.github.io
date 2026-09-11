@@ -176,14 +176,14 @@
     background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-.primaryButton {
+.flowlogPage .primaryButton {
   background: var(--flowlog-button-primary-bg);
   color: var(--flowlog-button-primary-text);
   border: none;
   box-shadow: var(--flowlog-button-primary-shadow);
 }
 
-.secondaryButton {
+.flowlogPage .secondaryButton {
   border: 1px solid var(--flowlog-button-secondary-border);
   color: var(--flowlog-button-secondary-text);
   background-color: var(--flowlog-button-secondary-bg);
@@ -197,11 +197,11 @@
   text-decoration: none;
 }
 
-.primaryButton:hover {
+.flowlogPage .primaryButton:hover {
   color: var(--flowlog-button-primary-text);
 }
 
-.secondaryButton:hover {
+.flowlogPage .secondaryButton:hover {
   color: var(--flowlog-button-secondary-text);
   border-color: var(--flowlog-link);
 }
@@ -389,75 +389,74 @@
   text-transform: uppercase;
 }
 
-.ctaPanel {
-  border: 1px solid var(--flowlog-card-border);
-  border-radius: 20px;
-  padding: 40px 32px;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(55, 191, 254, 0.10), transparent 50%),
-    radial-gradient(circle at 100% 100%, rgba(255, 175, 120, 0.10), transparent 50%),
-    var(--flowlog-card-bg);
-  box-shadow: var(--flowlog-card-shadow);
-  margin-bottom: 56px;
-  text-align: center;
+.communitySection {
+  font-family: var(--flowlog-brand-font);
 }
 
-.ctaPanel h3 {
-  margin: 0 0 12px 0;
-  font-size: 24px;
-  font-weight: 700;
-  font-family: var(--flowlog-brand-font);
+.communitySection h2 {
+  scroll-margin-top: 100px;
+}
+
+.communityGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--flowlog-card-border);
+  border-radius: 16px;
+  box-shadow: var(--flowlog-card-shadow);
+  overflow: hidden;
+}
+
+.communityCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 32px;
+  background: var(--flowlog-highlight-bg);
+}
+
+.communityContribute {
+  background: var(--flowlog-card-bg);
+  border-left: 1px solid var(--flowlog-card-border);
+}
+
+.communityIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   color: var(--flowlog-text);
 }
 
-.ctaPanel p {
-  margin: 0 auto 24px;
-  max-width: 600px;
+.communityIcon svg,
+.communityIcon img {
+  width: 32px;
+  height: 32px;
+}
+
+.communityCard h3 {
+  margin: 20px 0 10px;
+  color: var(--flowlog-text);
+  font-size: 22px;
+  line-height: 1.3;
+}
+
+.communityCard p {
+  max-width: 36ch;
+  margin: 0 0 24px;
   color: var(--flowlog-muted);
-  font-family: var(--flowlog-brand-font);
+  font-size: 16px;
   line-height: 1.7;
 }
 
-.ctaActions {
-  display: flex;
-  justify-content: center;
-  gap: 14px;
-  flex-wrap: wrap;
+.communityAction {
+  gap: 12px;
+  margin-top: auto;
 }
 
-.gettingInvolved {
-  text-align: center;
-  max-width: 700px;
-  margin: 0 auto 60px;
-  font-family: var(--flowlog-brand-font);
-  color: var(--flowlog-muted);
-  line-height: 1.7;
-}
-
-.repoHighlight {
-  background-color: var(--flowlog-repo-bg);
-  color: var(--flowlog-link);
-  padding: 3px 10px;
-  border-radius: 6px;
-  text-decoration: none;
-  font-size: 0.9em;
-  font-weight: 600;
-  border: 1px solid var(--flowlog-repo-border);
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-  display: inline-block;
-}
-
-.repoHighlight::after {
-  content: ' ★';
-  font-size: 0.9em;
-}
-
-.repoHighlight:hover {
-  background-color: var(--flowlog-repo-hover-bg);
-  border-color: var(--flowlog-repo-hover-border);
-  color: var(--flowlog-link-hover);
-  text-decoration: none;
-  transform: translateY(-1px);
+.communityAction:focus-visible {
+  outline: 3px solid var(--flowlog-link);
+  outline-offset: 4px;
 }
 
 @media screen and (max-width: 768px) {
@@ -496,5 +495,18 @@
 
   .heroStats {
     margin-top: 20px;
+  }
+
+  .communityGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .communityCard {
+    padding: 28px 24px;
+  }
+
+  .communityContribute {
+    border-left: 0;
+    border-top: 1px solid var(--flowlog-card-border);
   }
 }

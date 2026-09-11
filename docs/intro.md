@@ -5,6 +5,7 @@ title: Welcome
 ---
 
 import StyledFlowLog from '../src/components/StyledFlowLog';
+import SlackLink from '../src/components/SlackLink';
 
 <p>
   <StyledFlowLog /> is a composable Datalog engine that compiles programs into efficient and scalable <a href="https://github.com/TimelyDataflow/differential-dataflow">Differential Dataflow</a> executables. <StyledFlowLog /> is built for workloads that need to keep results fresh as data changes, without giving up on performance stability or operability at scale.
@@ -22,3 +23,10 @@ import StyledFlowLog from '../src/components/StyledFlowLog';
     <strong>Scales up and out.</strong> The same <StyledFlowLog /> program can run on a single powerful machine or across a cluster. The generated executables use Timely Dataflow for parallel and distributed execution.
   </li>
 </ul>
+
+## Connect with the team
+
+<p>
+  <SlackLink>Join us on Slack</SlackLink> to get help with FlowLog, discuss your
+  workloads, and explore ways to contribute.
+</p>

@@ -3,14 +3,9 @@ title: Sponsor FlowLog
 description: Support FlowLog's development and infrastructure
 ---
 
-export const FL = () => <span className="flowlog"><span className="flow">Flow</span><span className="log">Log</span></span>;
+import SlackLink from '../components/SlackLink';
 
-export const Mail = ({children}) => (
-  <a href="#contact" onClick={(e) => {
-    e.preventDefault();
-    window.location.href = 'mailto:' + ['zyu379', 'wisc.edu'].join('@');
-  }}>{children}</a>
-);
+export const FL = () => <span className="flowlog"><span className="flow">Flow</span><span className="log">Log</span></span>;
 
 <div className="bench-wrap">
 
@@ -45,7 +40,7 @@ right now:
 <p className="bench-more">
 Sponsors are acknowledged on this site, in the repository, and in every
 report <FL/> publishes.
-Interested? <Mail>Reach us by email</Mail>.
+Interested? <SlackLink>Talk with us on Slack</SlackLink>.
 We'd love to talk.
 </p>
 

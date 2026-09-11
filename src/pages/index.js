@@ -1,6 +1,7 @@
 import React from 'react';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
+import SlackLink from '../components/SlackLink';
 import styles from './index.module.css';
 
 const KEY_FEATURES = [
@@ -176,41 +177,41 @@ export default function Home() {
             ))}
           </div>
 
-          <div className={styles.ctaPanel}>
-            <h3>Ready to experiment?</h3>
-            <p>
-              Reproduce our VLDB results, plug in your Soufflé programs, or
-              chat with us about shaping the roadmap. FlowLog thrives on
-              real-world workloads.
-            </p>
-            <div className={styles.ctaActions}>
-              <Link className={styles.primaryButton} to="/tutorial/intro">
-                Learn More
-              </Link>
-              <a
-                className={styles.secondaryButton}
-                href="mailto:hangdong@cs.wisc.edu">
-                Contact the team
-              </a>
+          <section className={styles.communitySection} aria-labelledby="getting-involved">
+            <h2 id="getting-involved">Getting Involved</h2>
+            <div className={styles.communityGrid}>
+              <article className={styles.communityCard}>
+                <span className={styles.communityIcon} aria-hidden="true">
+                  <img src="/img/slack-mark.svg" width="32" height="32" alt="" />
+                </span>
+                <h3>Talk with the team</h3>
+                <p>
+                  Ask questions, share workloads, and discuss ideas with us on Slack.
+                </p>
+                <SlackLink className={`${styles.primaryButton} ${styles.communityAction}`}>
+                  Join us on Slack <span aria-hidden="true">↗</span>
+                </SlackLink>
+              </article>
+              <article className={`${styles.communityCard} ${styles.communityContribute}`}>
+                <span className={styles.communityIcon} aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                  </svg>
+                </span>
+                <h3>Build with us</h3>
+                <p>
+                  Improve the code and docs, report bugs, or suggest a feature on GitHub.
+                </p>
+                <a
+                  className={`${styles.secondaryButton} ${styles.communityAction}`}
+                  href="https://github.com/flowlog-rs/flowlog"
+                  target="_blank"
+                  rel="noopener noreferrer">
+                  Explore GitHub <span aria-hidden="true">↗</span>
+                </a>
+              </article>
             </div>
-          </div>
-
-          <h2>Getting Involved</h2>
-          <div className={styles.gettingInvolved}>
-            <p>
-              FlowLog is open-source on GitHub{' '}
-              <a
-                href="https://github.com/flowlog-rs"
-                target="_blank"
-                rel="noreferrer"
-                className={styles.repoHighlight}>
-                flowlog-rs
-              </a>{' '}
-              under active development. If you're interested in discussing
-              FlowLog query optimizations, email at{' '}
-              <a href="mailto:hangdong@cs.wisc.edu">hangdong@cs.wisc.edu</a>.
-            </p>
-          </div>
+          </section>
         </section>
       </main>
     </Layout>

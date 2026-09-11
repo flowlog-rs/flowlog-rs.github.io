@@ -4,6 +4,10 @@
 const lightCodeTheme = require('prism-react-renderer/themes/github');
 const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
+// Shared by the navigation, footer, and SlackLink component.
+const slackInviteUrl =
+  'https://join.slack.com/t/flowlog-workspace/shared_invite/zt-49jy9neqa-k05nPXRAvxzQEECqv5BnMQ';
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'FlowLog',
@@ -14,6 +18,9 @@ const config = {
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/flowlog.png',
+  customFields: {
+    slackInviteUrl,
+  },
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -78,6 +85,11 @@ const config = {
             position: 'left',
           },
           {
+            href: slackInviteUrl,
+            label: 'Slack',
+            position: 'right',
+          },
+          {
             href: 'https://github.com/flowlog-rs/flowlog',
             label: 'GitHub',
             position: 'right',
@@ -117,6 +129,10 @@ const config = {
               //   label: 'Blog',
               //   to: '/blog',
               // },
+              {
+                label: 'Join us on Slack',
+                href: slackInviteUrl,
+              },
               {
                 label: 'GitHub',
                 href: 'https://github.com/flowlog-rs/flowlog',
