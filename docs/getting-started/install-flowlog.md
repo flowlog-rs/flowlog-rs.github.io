@@ -11,14 +11,26 @@ If you’re using Ubuntu/Debian, macOS or Windows, download a packaged version f
 
 ## Build from sources
 
-Follow these steps when you need the latest <StyledFlowLog /> bits or want to target an OS that does not yet have a prebuilt package.
+Follow these steps when you need the latest <StyledFlowLog /> changes or want to target an OS that does not yet have a prebuilt package.
 
 ### Clone the repository
 
 ```bash
-$ git clone https://github.com/flowlog-rs/FlowLog.git
-$ cd FlowLog
+$ git clone https://github.com/flowlog-rs/flowlog.git
+$ cd flowlog
 ```
+
+The default branch, `main`, contains ongoing development and can include
+unreleased changes. To build a published compiler version, check out its tag
+before building, for example:
+
+```bash
+$ git switch --detach flowlog-compiler-v0.6.0
+```
+
+For contributions, create a feature branch from `main` and target your PR at
+`main`. See the [contributor guide](https://github.com/flowlog-rs/flowlog/blob/main/AGENTS.md)
+and [release process](https://github.com/flowlog-rs/flowlog/blob/main/docs/dev/releases.md).
 
 ### Set up prerequisites
 
@@ -26,12 +38,12 @@ For the common platforms, run the bootstrap script that already sets everything 
 
 - **Ubuntu/Debian** and **macOS**:
 ```bash
-$ bash tools/env.sh
+$ bash env/env.sh
 ```
 
 - **Windows**:
 ```powershell
-$ powershell -ExecutionPolicy Bypass -File tools/env.ps1
+$ powershell -ExecutionPolicy Bypass -File env/env.ps1
 ```
 
 The script refreshes system packages (`apt` on Linux, Homebrew on macOS), ensures `rustup` is installed, switches to the latest stable toolchain, and finishes with `cargo check` so you know the workspace compiles.
@@ -50,12 +62,15 @@ Once those pieces are installed you can skip the script and proceed directly to 
 $ cargo build --release
 ```
 
-Artifact is emitted at `target/release/flowlog`. Drop `--release` for faster debug builds while iterating.
+The compiler is emitted at `target/release/flowlog-compiler` (`flowlog-compiler.exe`
+on Windows). Drop `--release` for faster debug builds while iterating.
 
 ### Run the tests
 
 ```bash
-$ bash tests/e2e/run.sh
+$ bash tests/fixtures/run_compiler.sh
+$ bash tests/fixtures/run_lib.sh
 ```
 
-Running the full end-to-end test suite is a good final verification step before packaging binaries or submitting changes.
+See [the testing guide](https://github.com/flowlog-rs/flowlog/blob/main/tests/README.md)
+for unit tests, fixture suites, and the Souffle oracle.
