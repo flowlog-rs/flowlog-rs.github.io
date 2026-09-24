@@ -160,10 +160,14 @@
   color: var(--flowlog-accent-brown);
 }
 
-/* FlowLog Prism highlighting: keep font styles consistent across themes. */
-/* prism-react-renderer theme sets some token font-styles inline; use !important */
-.language-flowlog .token.comment,
-.language-flowlog .token.keyword {
+/* Prism themes can set token styles inline. */
+em,
+i,
+cite,
+dfn,
+address,
+var,
+.token {
   font-style: normal !important;
 }
 
@@ -574,7 +578,7 @@
 }
 .bench-card:hover .bc-arrow { opacity: 1; transform: translateX(4px); }
 
-.bench-more { margin-top: 26px; color: var(--ifm-blockquote-color); font-size: 14px; font-style: italic; }
+.bench-more { margin-top: 26px; color: var(--ifm-blockquote-color); font-size: 14px; }
 
 /* benchmarks page: CI-sponsorship callout */
 .bench-help {
