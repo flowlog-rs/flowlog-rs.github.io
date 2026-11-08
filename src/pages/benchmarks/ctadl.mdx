@@ -1,0 +1,47 @@
+---
+title: CTADL taint analysis
+description: FlowLog vs Soufflé on CTADL taint analyses
+---
+
+export const FL = () => <span className="flowlog"><span className="flow">Flow</span><span className="log">Log</span></span>;
+
+<div className="bench-wrap">
+
+<a className="bench-back" href="/benchmarks">← All benchmarks</a>
+
+# CTADL taint analysis
+
+<p className="bench-lede">
+How fast <FL/> runs the taint analyses of <a href="https://github.com/sandialabs/ctadl">CTADL</a>, compared with Soufflé.
+</p>
+
+<dl className="spec">
+  <dt>Engines</dt>
+  <dd><FL/> (with string interning) vs Soufflé 2.5 as CTADL's Datalog engine, via <a href="https://github.com/flowlog-rs/ctadl-flowlog">ctadl-flowlog</a>. Each analysis is compiled once and cached, so times exclude compiling.</dd>
+  <dt>Workload</dt>
+  <dd>29 programs, each indexed (<code>ctadl index</code>) then queried for taint flows (<code>ctadl query</code>): 14 Ubuntu 22.04 executables through Ghidra's P-code, 13 F-Droid Android apps through JADX, and 2 synthetic programs.</dd>
+  <dt>Measured</dt>
+  <dd>Run time of each whole <code>ctadl</code> command and of the analysis binary alone, and peak memory (RSS), median of 3 runs after a warm-up.</dd>
+  <dt>Results</dt>
+  <dd>The SARIF reports have the same taint results on all 27 programs that have them. The databases differ only where CTADL's choice-domain relations let each engine keep another valid witness, and in what CTADL derives from those witnesses.</dd>
+  <dt>Platform</dt>
+  <dd>AMD EPYC 7V13 (Milan), 24 cores, 216 GiB RAM, Linux 6.8. Both engines run at 16 threads.</dd>
+</dl>
+
+<div className="bench-stats">
+  <div><div className="n">2.5× less</div><div className="l">total time, 4,549 s → 1,809 s</div></div>
+  <div><div className="n">up to 4.9×</div><div className="l">faster per command</div></div>
+  <div><div className="n">4.3× more</div><div className="l">peak memory (geomean)</div></div>
+</div>
+
+<iframe
+  src="/benchmarks/ctadl-speedup.html"
+  title="FlowLog vs Soufflé — CTADL taint-analysis speedup heatmap"
+  style={{width:'100%',height:'1250px',border:0,borderRadius:'12px',marginTop:'6px'}}
+/>
+
+<p style={{marginTop:'16px',fontSize:'14px',color:'var(--ifm-blockquote-color)'}}>
+Reproduce with <code>benchmark/sweep.sh</code> in <a href="https://github.com/flowlog-rs/ctadl-flowlog/tree/main/benchmark">ctadl-flowlog</a>.
+</p>
+
+</div>

@@ -1,0 +1,246 @@
+<title>FlowLog vs Soufflé — CTADL taint-analysis speedup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Ubuntu+Mono&display=swap" rel="stylesheet">
+<style>
+  /* ---- FlowLog site theme (matches flowlog-rs.github.io custom.css):
+         Ubuntu font, brand blue #0087B9, rust accent, site surfaces.
+         Tokens on :root so the whole page shares one surface; dark follows
+         OS scheme and the site's data-theme toggle. ---- */
+  :root{
+    color-scheme:light;
+    --plane:#f7fafd;           /* site page/pre background */
+    --panel:#ffffff;
+    --ink:#1c2733; --ink2:#4a5560; --muted:#7a8894;
+    --border:#e6ecf1;          /* site table/toc border */
+    --neutral:#eaeff3; --neutral-ink:#8a97a3;   /* N/A cells (FL✓ / neither) */
+    /* sequential ramp built from the FlowLog brand blue #0087B9 */
+    --b1:#dceef7; --b2:#aed9ec; --b3:#72c0e0; --b4:#2ea0c9; --b5:#0087b9; --b6:#0a6a90;
+    /* MEMORY ramp — FlowLog "wood" (rust/brown); darker = FlowLog leaner */
+    --w1:#f6e2cb; --w2:#e8c199; --w3:#d99a5c; --w4:#c2703a; --w5:#8f4f22; --w6:#5f2d12;
+  }
+  @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+    color-scheme:dark; --plane:#161c25; --panel:#1c222c;
+    --ink:#e6ebf0; --ink2:#a0b3c2; --muted:#7c8b99; --border:#243042;
+    --neutral:#222b38; --neutral-ink:#8ea0b0;
+  }}
+  :root[data-theme="dark"]{
+    color-scheme:dark; --plane:#161c25; --panel:#1c222c;
+    --ink:#e6ebf0; --ink2:#a0b3c2; --muted:#7c8b99; --border:#243042;
+    --neutral:#222b38; --neutral-ink:#8ea0b0;
+  }
+  html,body{margin:0; background:var(--plane)}
+  .wrap{                       /* centered content column */
+    font-family:'Ubuntu','Cambay',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    color:var(--ink); max-width:860px; margin:0 auto; padding:34px 24px 56px;
+  }
+  code{font-family:'Ubuntu Mono','JetBrains Mono',SFMono-Regular,Menlo,monospace}
+  /* embedded in the site: the page already shows title + headline, so hide ours */
+  .wrap.embedded{padding-top:6px; padding-bottom:10px}
+  .wrap.embedded h1, .wrap.embedded .cap, .wrap.embedded .foot-cfg{display:none}
+  /* FlowLog wordmark — Flow (blue) + Log (rust), matching the site */
+  .flow{color:#0087b9} .log{color:#5f2d12}
+  @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .flow{color:#46bee6} :root:where(:not([data-theme="light"])) .log{color:#d2824b}}
+  :root[data-theme="dark"] .flow{color:#46bee6} :root[data-theme="dark"] .log{color:#d2824b}
+  h1{font-size:20px; font-weight:650; letter-spacing:-0.01em; margin:0 0 10px}
+  /* headline stat: median + range only */
+  .cap{font-size:14px; color:var(--ink2); line-height:1.55; margin:0 0 20px}
+  .cap b{color:var(--ink); font-weight:650}
+  .cap .big{font-size:16px}
+  .toolbar{display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:12.5px; color:var(--muted)}
+  .seg{display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden}
+  .seg button{font:inherit; font-size:12.5px; padding:5px 12px; background:var(--panel); color:var(--ink2); border:0; cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--b4); color:#fff}
+  /* heatmap panel — table sized to content and centered, so it reads as one block */
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:10px; overflow-x:auto}
+  table.hm{border-collapse:separate; border-spacing:2px; margin:0 auto}
+  table.hm th{font-weight:550; font-size:11.5px; color:var(--ink2); padding:3px 5px}
+  table.hm th.fam{text-align:right; white-space:nowrap; padding-right:9px; font-weight:450; color:var(--ink)}
+  table.hm td{width:90px; height:34px; text-align:center; border-radius:5px; font-variant-numeric:tabular-nums;
+              font-size:13.5px; font-weight:600; cursor:default}
+  table.hm td .sub{display:block; font-size:9px; font-weight:500; opacity:.7; margin-top:1px}
+  .legend{display:flex; gap:15px; flex-wrap:wrap; align-items:center; margin-top:10px; font-size:11.5px; color:var(--ink2)}
+  .legend .sw{display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-2px; margin-right:5px; border:1px solid var(--border)}
+  .ramp{display:inline-flex; align-items:center; gap:2px}
+  .ramp i{width:18px; height:11px; border-radius:2px}
+  .foot{font-size:11px; color:var(--muted); margin-top:12px; line-height:1.5}
+  .tip{position:fixed; pointer-events:none; z-index:20; background:var(--ink); color:var(--plane);
+       font-size:11px; line-height:1.55; padding:8px 10px; border-radius:7px; opacity:0; transition:opacity .08s;
+       box-shadow:0 4px 16px rgba(0,0,0,.28); max-width:280px}
+  .tip .k{color:#7fb2f0}
+  .tip .th{display:inline-block; min-width:64px; color:var(--muted)}   /* row label in tooltip */
+  .tip .dim{color:var(--muted)}
+  .tip b{color:var(--plane)}
+  table.hm th.suite{text-align:left; padding:9px 5px 2px; font-weight:600; color:var(--ink2)}
+  table.hm th.suite .dim{font-weight:400; color:var(--muted)}
+</style>
+
+<div class="wrap">
+  <h1><span class="flow">Flow</span><span class="log">Log</span> vs Soufflé on CTADL taint analysis</h1>
+
+  <!-- single headline, updated by the toggles -->
+  <p class="cap" id="cap"></p>
+
+  <div class="toolbar">
+    <span class="seg" role="group" aria-label="metric">
+      <button id="tTime" aria-pressed="true">run time</button>
+      <button id="tMem" aria-pressed="false">peak memory</button>
+    </span>
+    <span class="seg" id="scopeSeg" role="group" aria-label="scope">
+      <button id="sWall" aria-pressed="true">whole command</button>
+      <button id="sEngine" aria-pressed="false">engine only</button>
+    </span>
+  </div>
+
+  <div class="panel"><table class="hm" id="hm"></table></div>
+
+  <div class="legend">
+    <span class="ramp" id="ramp"></span>
+    <span id="slower"><span class="sw" style="background:var(--neutral)"></span>FlowLog slower (below 1×)</span>
+  </div>
+
+  <p class="foot"><span class="foot-cfg">29 workloads of CTADL's benchmark suite · FlowLog (16 workers, <code>--str-intern</code>) vs Soufflé 2.5 (<code>-j 16</code>) · medians of 3 runs after a warm-up, engine order alternated · AMD EPYC 7V13, 24 cores, 216 GiB.</span></p>
+  <div class="tip" id="tip"></div>
+</div>
+
+<script>
+const DATA = {"suites":["Synthetic","P-code","JADX"],"cap":{"n":29,"wall":[2.19,2.05],"engine":[3.02,4.53],"total":[4549,1809],"faster":[55,58],"mem":[4.3,2.2,17.1,11.8]},"rows":[[0,"syn10",[2.069,2.521,0.616,0.97,55.3,1050.2],[2.52,2.369,0.816,0.566,61.3,809.4]],[0,"syn25",[16.811,5.531,14.911,3.58,364.1,1736.5],[71.312,57.28,38.095,13.805,1367.5,4092.9]],[1,"libz",[11.395,6.885,8.086,3.526,168.6,1618.8],[5.731,3.222,3.373,0.718,94.6,975.2]],[1,"nc",[16.207,8.591,12.656,4.98,198.7,1666.1],[8.236,3.976,5.23,0.867,123.6,938.8]],[1,"sed",[21.472,9.19,17.368,4.879,240.8,1611.1],[8.187,4.426,4.778,0.817,115.1,937.2]],[1,"gzip",[25.179,10.19,20.538,5.431,283.6,1669.7],[9.189,4.127,6.131,0.817,142.0,974.3]],[1,"dropbear",[44.636,15.308,38.243,8.442,433.4,1930.6],[14.15,5.78,9.841,1.218,206.1,1083.4]],[1,"sudo",[55.87,19.716,47.882,11.149,568.3,2315.5],[20.014,8.087,13.984,1.669,285.2,1140.9]],[1,"lighttpd",[58.377,21.678,48.749,11.653,654.1,2388.1],[15.652,8.64,9.09,1.669,291.1,1231.5]],[1,"dnsmasq",[137.096,47.001,119.314,28.192,1469.6,5467.5],[57.617,16.659,46.673,4.829,845.3,1997.5]],[1,"wget",[151.89,48.456,134.716,28.183,1405.0,3672.9],[51.468,17.31,39.151,3.475,649.7,1567.5]],[1,"tar",[168.287,54.171,148.803,32.826,1640.8,4855.9],[60.979,19.42,47.89,4.428,822.5,1869.3]],[1,"openssl",[246.587,76.035,219.97,45.952,2087.6,5156.0],[78.339,20.859,65.053,4.929,989.1,1889.4]],[1,"ssh",[287.624,98.161,254.509,65.41,2774.7,9877.7],[146.188,29.893,128.309,9.844,1674.2,2843.4]],[1,"bash",[337.177,104.66,300.388,64.335,2945.9,6483.8],[108.328,36.12,83.351,7.188,1388.9,2364.4]],[1,"sqlite3",[353.378,118.21,309.212,73.112,3689.8,12064.3],[130.721,38.072,107.565,11.497,1991.7,2959.9]],[2,"diary",[4.174,4.226,2.22,2.272,91.6,1192.4],[2.62,2.421,0.666,0.516,64.5,820.0]],[2,"editor",[4.325,4.328,2.42,2.219,96.1,1318.8],[2.621,2.421,0.766,0.516,63.6,827.8]],[2,"netguard",[24.781,13.352,19.343,7.634,355.2,1812.0],[7.686,5.379,4.125,1.919,183.8,1025.2]],[2,"vanilla",[35.716,18.219,27.374,10.597,512.0,2476.4],[9.944,6.781,5.833,2.571,258.4,1169.1]],[2,"binaryeye",[46.443,22.983,38.363,13.727,792.9,3146.2],[13.701,8.69,8.688,3.274,388.4,1281.0]],[2,"opencamera",[69.805,36.818,55.796,20.394,988.2,2919.4],[18.164,11.394,11.646,4.777,514.2,1430.0]],[2,"notes",[117.385,59.236,97.951,35.931,1669.1,5029.5],[32.608,16.864,22.6,8.339,880.2,1860.0]],[2,"connectbot",[130.533,59.625,108.45,33.65,1930.3,5988.4],[35.159,17.76,24.331,6.884,978.4,2015.9]],[2,"antennapod",[141.419,68.509,117.639,40.916,1983.5,7920.5],[34.608,18.512,25.877,9.038,1034.6,2099.2]],[2,"amaze",[141.607,64.3,119.162,38.652,2253.2,6746.8],[37.978,18.661,28.312,8.535,1087.1,2089.2]],[2,"newpipe",[195.802,89.273,165.857,51.862,2857.4,7614.8],[52.209,23.928,40.634,11.296,1486.6,2471.2]],[2,"k9",[226.987,102.617,191.594,57.188,3302.6,8426.4],[64.1,32.206,49.018,13.73,1710.6,2647.3]],[2,"wikipedia",[286.37,132.817,243.152,74.893,4097.2,10446.5],[89.56,45.338,66.692,18.047,2131.3,3045.9]]]};
+// rows: [suite index, workload, index, query]; each phase is
+// [Soufflé wall, FlowLog wall, Soufflé engine, FlowLog engine, Soufflé RSS, FlowLog RSS] (s, MiB)
+const SUITE_NOTE = {"Synthetic":"taint-front programs", "P-code":"Ubuntu executables through Ghidra", "JADX":"F-Droid apps through JADX"};
+const COLS = ["index", "query", "both"];
+const W = 0, E = 2, R = 4;   // offsets of wall, engine and RSS in a phase
+
+// RUN-TIME: blue ramp as in the DOOP figure; whole-command speedups use its
+// hand-tuned bands, engine-only ones (a wider range) its non-hand-tuned bands.
+const RAMP = ["--b1","--b2","--b3","--b4","--b5","--b6"];
+const LIGHT_TEXT_FROM = 3;
+function band(v, scope){
+  if(scope==='wall') return v<1.5?0 : v<2?1 : v<2.5?2 : v<3.5?3 : v<4.5?4 : 5;
+  return                 v<2?0   : v<3?1 : v<5?2   : v<8?3   : v<12?4  : 5;
+}
+// MEMORY: the DOOP figure's wood ramp, FlowLog ÷ Soufflé; darker = FlowLog leaner.
+const MEMRAMP = ["--w6","--w5","--w4","--w3","--w2","--w1"];
+function memColor(v){
+  if(v<0.55) return ["--w6","#fff"];
+  if(v<0.7)  return ["--w5","#fff"];
+  if(v<0.85) return ["--w4","#fff"];
+  if(v<1.0)  return ["--w3","#3a1e0c"];
+  if(v<1.3)  return ["--w2","#4a3626"];
+  return                ["--w1","#4a3626"];
+}
+
+// Soufflé ÷ FlowLog run time, or FlowLog ÷ Soufflé peak RSS, of a column
+function ratio(row, col, metric, scope){
+  const ph = col==='both' ? [row[2], row[3]] : [row[col==='index'?2:3]];
+  if(metric==='mem') return Math.max(...ph.map(p=>p[R+1])) / Math.max(...ph.map(p=>p[R]));
+  const o = scope==='wall' ? W : E, sum = i => ph.reduce((a,p)=>a+p[o+i], 0);
+  return sum(0) / sum(1);
+}
+const fmtS = t => (t<10 ? t.toFixed(1) : Math.round(t).toLocaleString('en-US')) + 's';
+const gib = m => (m/1024).toFixed(1);
+
+let metric='time', scope='wall';
+function render(){
+  const mem = metric==='mem', c = DATA.cap;
+  document.getElementById('scopeSeg').style.visibility = mem ? 'hidden' : 'visible';
+  document.getElementById('slower').style.display = mem ? 'none' : '';
+  // caption
+  const cap = document.getElementById('cap');
+  if(mem){
+    cap.innerHTML = `Peak memory, FlowLog ÷ Soufflé, the larger of index and query (16 threads). ` +
+      `<span class="big"><b>Geomean ${c.mem[0]}×</b>, range <b>${c.mem[1]}–${c.mem[2]}×</b></span>, at most ${c.mem[3]} GiB. ` +
+      `FlowLog's floor is about 1 GiB with 16 workers, so the smallest workloads show the largest ratios.`;
+  } else if(scope==='wall'){
+    cap.innerHTML = `Run-time speedup of FlowLog over Soufflé, whole <code>ctadl index</code> and <code>ctadl query</code> commands. ` +
+      `<span class="big"><b>Geomean ${c.wall[0]}×</b> (index), <b>${c.wall[1]}×</b> (query)</span>, ` +
+      `${c.total[0].toLocaleString('en-US')}s → ${c.total[1].toLocaleString('en-US')}s over all ${c.n} workloads; faster in ${c.faster[0]} of the ${c.faster[1]} index and query phases.`;
+  } else {
+    cap.innerHTML = `Run-time speedup of FlowLog over Soufflé, analysis binaries only, with their SQLite reads and writes. ` +
+      `<span class="big"><b>Geomean ${c.engine[0]}×</b> (index), <b>${c.engine[1]}×</b> (query)</span>.`;
+  }
+
+  // grid
+  let h = "<tr><th class='fam'></th>" + COLS.map(k=>`<th>${k}</th>`).join("") + "</tr>";
+  DATA.suites.forEach((s, si) => {
+    const rows = DATA.rows.filter(r => r[0]===si);
+    h += `<tr><th class='suite' colspan='${COLS.length+1}'>${s} <span class='dim'>· ${rows.length} ${SUITE_NOTE[s]}</span></th></tr>`;
+    for(const r of rows){
+      h += `<tr><th class='fam'>${r[1]}</th>`;
+      for(const k of COLS){
+        const v = ratio(r, k, metric, scope);
+        let style;
+        if(mem){ const [bg,fg]=memColor(v); style=`background:var(${bg});color:${fg}`; }
+        else if(v<1){ style=`background:var(--neutral);color:var(--ink2)`; }
+        else { const bi=band(v,scope); style=`background:var(${RAMP[bi]});color:${bi>=LIGHT_TEXT_FROM?'#fff':'#0b0b0b'}`; }
+        // speedups sit near 1× on the smallest workloads: two decimals tell slower from even
+        h += `<td data-k="${r[1]}" style="${style}">${v.toFixed(mem ? 1 : 2)}×</td>`;
+      }
+      h += "</tr>";
+    }
+  });
+  document.getElementById('hm').innerHTML = h;
+
+  // legend
+  const ramp = document.getElementById('ramp');
+  if(mem){
+    ramp.innerHTML = "FlowLog leaner&nbsp;" +
+      MEMRAMP.map(r=>`<i style="background:var(${r})"></i>`).join("") +
+      "&nbsp;heavier <span style='color:var(--muted)'>(darker = more RAM saved; below 1× = leaner than Soufflé)</span>";
+  } else {
+    const labs = scope==='wall' ? ["1.5","2","2.5","3.5","4.5","4.5+"] : ["2","3","5","8","12","12+"];
+    ramp.innerHTML = "faster →&nbsp;" + RAMP.map((r,i)=>`<i style="background:var(${r})" title="${labs[i]}×"></i>`).join("");
+  }
+}
+function setMetric(m){ metric=m; tTime.setAttribute('aria-pressed',m==='time'); tMem.setAttribute('aria-pressed',m==='mem'); render(); }
+function setScope(s){ scope=s; sWall.setAttribute('aria-pressed',s==='wall'); sEngine.setAttribute('aria-pressed',s==='engine'); render(); }
+tTime.onclick=()=>setMetric('time');
+tMem.onclick=()=>setMetric('mem');
+sWall.onclick=()=>setScope('wall');
+sEngine.onclick=()=>setScope('engine');
+
+// hover tooltip: each engine's medians
+const tip=document.getElementById('tip'), hm=document.getElementById('hm');
+const ROW = {}; DATA.rows.forEach(r => ROW[r[1]] = r);
+hm.addEventListener('mousemove',e=>{
+  const td=e.target.closest('td[data-k]'); if(!td){tip.style.opacity=0;return;}
+  const r=ROW[td.dataset.k]; if(!r){tip.style.opacity=0;return;}
+  let b=`<b>${r[1]}</b> · <span class="k">${DATA.suites[r[0]]}</span>`;
+  ["index","query"].forEach((k,i)=>{
+    const p=r[2+i];
+    b+=`<br><span class="th">${k}</span> Soufflé ${fmtS(p[W])} · FlowLog <b>${fmtS(p[W+1])}</b> · ${(p[W]/p[W+1]).toFixed(2)}×`;
+    b+=`<br><span class="th"></span> <span class="dim">engine ${fmtS(p[E])} · ${fmtS(p[E+1])} · ${(p[E]/p[E+1]).toFixed(2)}×</span>`;
+  });
+  const rs=Math.max(r[2][R],r[3][R]), rf=Math.max(r[2][R+1],r[3][R+1]);
+  b+=`<br><span class="th">peak RAM</span> Soufflé ${gib(rs)} GiB · FlowLog ${gib(rf)} GiB · ${(rf/rs).toFixed(2)}×`;
+  tip.innerHTML=b; tip.style.opacity=1;
+  let x=e.clientX+14, y=e.clientY+14;
+  if(x+290>innerWidth)x=e.clientX-290; if(y+110>innerHeight)y=e.clientY-110;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+});
+hm.addEventListener('mouseleave',()=>tip.style.opacity=0);
+
+// When embedded in the FlowLog site (same-origin iframe): mirror the site's
+// light/dark toggle, hide our own title/caption, and size the iframe to fit.
+(function(){
+  const embedded = window.parent !== window;
+  if(embedded) document.querySelector('.wrap').classList.add('embedded');
+  function sync(){
+    try{
+      const t = window.parent.document.documentElement.getAttribute('data-theme');
+      if(t) document.documentElement.setAttribute('data-theme', t);
+    }catch(e){}
+  }
+  if(embedded){
+    sync();
+    try{ new MutationObserver(sync).observe(window.parent.document.documentElement,
+      {attributes:true, attributeFilter:['data-theme']}); }catch(e){}
+    const fit=()=>{ try{ const h=document.querySelector('.wrap').getBoundingClientRect().height; window.frameElement.style.height=Math.ceil(h)+6+'px'; }catch(e){} };
+    fit(); [120,400,900].forEach(t=>setTimeout(fit,t));
+    window.addEventListener('load', fit);
+    window.addEventListener('resize', fit);
+    document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>setTimeout(fit,0)));
+  }
+})();
+
+setScope('wall');
+</script>
