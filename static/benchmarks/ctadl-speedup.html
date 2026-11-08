@@ -1,3 +1,7 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FlowLog vs Soufflé — CTADL taint-analysis speedup</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&family=Ubuntu+Mono&display=swap" rel="stylesheet">
@@ -28,14 +32,16 @@
     --ink:#e6ebf0; --ink2:#a0b3c2; --muted:#7c8b99; --border:#243042;
     --neutral:#222b38; --neutral-ink:#8ea0b0;
   }
+  *{box-sizing:border-box}
   html,body{margin:0; background:var(--plane)}
+  html.embedded, html.embedded body{background:transparent}
   .wrap{                       /* centered content column */
     font-family:'Ubuntu','Cambay',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
-    color:var(--ink); max-width:860px; margin:0 auto; padding:34px 24px 56px;
+    color:var(--ink); max-width:1168px; margin:0 auto; padding:34px 24px 40px;
   }
   code{font-family:'Ubuntu Mono','JetBrains Mono',SFMono-Regular,Menlo,monospace}
-  /* embedded in the site: the page already shows title + headline, so hide ours */
-  .wrap.embedded{padding-top:6px; padding-bottom:10px}
+  /* The parent page supplies the title and result highlights. */
+  .wrap.embedded{padding:0 0 8px}
   .wrap.embedded h1, .wrap.embedded .cap, .wrap.embedded .foot-cfg{display:none}
   /* FlowLog wordmark — Flow (blue) + Log (rust), matching the site */
   .flow{color:#0087b9} .log{color:#5f2d12}
@@ -46,39 +52,50 @@
   .cap{font-size:14px; color:var(--ink2); line-height:1.55; margin:0 0 20px}
   .cap b{color:var(--ink); font-weight:650}
   .cap .big{font-size:16px}
-  .toolbar{display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:12.5px; color:var(--muted)}
-  .seg{display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden}
-  .seg button{font:inherit; font-size:12.5px; padding:5px 12px; background:var(--panel); color:var(--ink2); border:0; cursor:pointer}
-  .seg button[aria-pressed=true]{background:var(--b4); color:#fff}
-  /* heatmap panel — table sized to content and centered, so it reads as one block */
-  .panel{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:10px; overflow-x:auto}
-  table.hm{border-collapse:separate; border-spacing:2px; margin:0 auto}
-  table.hm th{font-weight:550; font-size:11.5px; color:var(--ink2); padding:3px 5px}
-  table.hm th.fam{text-align:right; white-space:nowrap; padding-right:9px; font-weight:450; color:var(--ink)}
-  table.hm td{width:90px; height:34px; text-align:center; border-radius:5px; font-variant-numeric:tabular-nums;
-              font-size:13.5px; font-weight:600; cursor:default}
-  table.hm td .sub{display:block; font-size:9px; font-weight:500; opacity:.7; margin-top:1px}
+  .toolbar{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin:0 0 16px; font-size:13px; color:var(--muted)}
+  .seg{display:inline-flex; padding:4px; gap:3px; background:var(--plane); border:1px solid var(--border); border-radius:10px}
+  .seg button{font:inherit; padding:8px 14px; background:transparent; color:var(--ink2); border:0; border-radius:6px; cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--b6); color:#fff}
+  .seg button:hover:not([aria-pressed=true]){background:var(--border)}
+  button:focus-visible{outline:2px solid var(--b5); outline-offset:2px}
+  .panels{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; align-items:start}
+  .panel{min-width:0; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px}
+  .panel.synthetic{grid-column:1/-1}
+  .panel-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:16px}
+  .panel-head h2{font-size:18px; letter-spacing:-.02em; margin:0 0 5px}
+  .panel-head p{font-size:12px; color:var(--ink2); margin:0; line-height:1.5}
+  .count{flex-shrink:0; border-radius:20px; padding:5px 9px; background:var(--plane); color:var(--ink2); font-size:11px}
+  table.hm{width:100%; table-layout:fixed; border-collapse:separate; border-spacing:4px; margin:0}
+  table.hm th{font-weight:500; font-size:11px; color:var(--ink2); padding:0 0 8px; text-align:center}
+  table.hm th.fam{width:29%; text-align:left; overflow-wrap:anywhere; padding:0 8px 0 0; font-weight:400; font-size:12px; color:var(--ink)}
+  table.hm thead th.fam{font-size:11px; color:var(--ink2); padding-bottom:8px}
+  table.hm td{height:33px; padding:0; text-align:center; border-radius:5px; font-variant-numeric:tabular-nums; font-size:13px; font-weight:500}
+  table.hm td button{display:block; width:100%; min-height:33px; padding:7px 2px; background:none; border:0; border-radius:5px; color:inherit; font:inherit; cursor:pointer}
+  table.hm td button:hover{box-shadow:inset 0 0 0 2px currentColor}
+  .synthetic table.hm{max-width:720px}
   .legend{display:flex; gap:15px; flex-wrap:wrap; align-items:center; margin-top:10px; font-size:11.5px; color:var(--ink2)}
   .legend .sw{display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-2px; margin-right:5px; border:1px solid var(--border)}
-  .ramp{display:inline-flex; align-items:center; gap:2px}
+  .ramp{display:inline-flex; flex-wrap:wrap; align-items:center; gap:2px}
   .ramp i{width:18px; height:11px; border-radius:2px}
   .foot{font-size:11px; color:var(--muted); margin-top:12px; line-height:1.5}
-  .tip{position:fixed; pointer-events:none; z-index:20; background:var(--ink); color:var(--plane);
+  .tip{position:fixed; pointer-events:none; z-index:20; background:#172738; color:#f7fafd;
        font-size:11px; line-height:1.55; padding:8px 10px; border-radius:7px; opacity:0; transition:opacity .08s;
-       box-shadow:0 4px 16px rgba(0,0,0,.28); max-width:280px}
+       box-shadow:0 4px 16px rgba(0,0,0,.28); width:280px; max-width:calc(100vw - 16px)}
   .tip .k{color:#7fb2f0}
-  .tip .th{display:inline-block; min-width:64px; color:var(--muted)}   /* row label in tooltip */
-  .tip .dim{color:var(--muted)}
-  .tip b{color:var(--plane)}
-  table.hm th.suite{text-align:left; padding:9px 5px 2px; font-weight:600; color:var(--ink2)}
-  table.hm th.suite .dim{font-weight:400; color:var(--muted)}
+  .tip .th{display:inline-block; min-width:64px; color:#a0b3c2}
+  .tip .dim{color:#a0b3c2}
+  .tip b{color:#fff}
+  @media(max-width:720px){
+    .panels{grid-template-columns:1fr; gap:16px}
+    .panel.synthetic{grid-column:auto}
+    .panel{padding:16px 12px}
+    .wrap{padding:24px 16px}
+  }
+  @media(prefers-reduced-motion:reduce){.tip{transition:none}}
 </style>
 
 <div class="wrap">
   <h1><span class="flow">Flow</span><span class="log">Log</span> vs Soufflé on CTADL taint analysis</h1>
-
-  <!-- single headline, updated by the toggles -->
-  <p class="cap" id="cap"></p>
 
   <div class="toolbar">
     <span class="seg" role="group" aria-label="metric">
@@ -91,15 +108,17 @@
     </span>
   </div>
 
-  <div class="panel"><table class="hm" id="hm"></table></div>
+  <p class="cap" id="cap" aria-live="polite"></p>
 
-  <div class="legend">
+  <div class="panels" id="hm"></div>
+
+  <div class="legend" id="legend">
     <span class="ramp" id="ramp"></span>
     <span id="slower"><span class="sw" style="background:var(--neutral)"></span>FlowLog slower (below 1×)</span>
   </div>
 
   <p class="foot"><span class="foot-cfg">29 workloads of CTADL's benchmark suite · FlowLog (16 workers, <code>--str-intern</code>) vs Soufflé 2.5 (<code>-j 16</code>) · medians of 3 runs after a warm-up, engine order alternated · AMD EPYC 7V13, 24 cores, 216 GiB.</span></p>
-  <div class="tip" id="tip"></div>
+  <div class="tip" id="tip" role="tooltip"></div>
 </div>
 
 <script>
@@ -142,7 +161,7 @@ const gib = m => (m/1024).toFixed(1);
 let metric='time', scope='wall';
 function render(){
   const mem = metric==='mem', c = DATA.cap;
-  document.getElementById('scopeSeg').style.visibility = mem ? 'hidden' : 'visible';
+  document.getElementById('scopeSeg').style.display = mem ? 'none' : '';
   document.getElementById('slower').style.display = mem ? 'none' : '';
   // caption
   const cap = document.getElementById('cap');
@@ -160,12 +179,19 @@ function render(){
   }
 
   // grid
-  let h = "<tr><th class='fam'></th>" + COLS.map(k=>`<th>${k}</th>`).join("") + "</tr>";
-  DATA.suites.forEach((s, si) => {
+  let h = '';
+  // The two real-world suites share a row; the small synthetic suite sits below.
+  [1, 2, 0].forEach(si => {
+    const s = DATA.suites[si];
     const rows = DATA.rows.filter(r => r[0]===si);
-    h += `<tr><th class='suite' colspan='${COLS.length+1}'>${s} <span class='dim'>· ${rows.length} ${SUITE_NOTE[s]}</span></th></tr>`;
+    const labels = {index:'Index', query:'Query', both:mem ? 'Peak' : 'Combined'};
+    h += `<section class="panel ${si===0?'synthetic':''}" aria-labelledby="suite-${si}">` +
+      `<header class="panel-head"><div><h2 id="suite-${si}">${s}</h2><p>${SUITE_NOTE[s]}</p></div>` +
+      `<span class="count">${rows.length} programs</span></header>` +
+      `<table class="hm" aria-labelledby="suite-${si}" aria-describedby="legend"><thead><tr><th class="fam" scope="col">Program</th>` +
+      COLS.map(k=>`<th scope="col"${k==='both' ? ` title="${mem?'Larger peak of index and query':'Total index + query time'}"` : ''}>${labels[k]}</th>`).join('') + '</tr></thead><tbody>';
     for(const r of rows){
-      h += `<tr><th class='fam'>${r[1]}</th>`;
+      h += `<tr><th class='fam' scope='row'>${r[1]}</th>`;
       for(const k of COLS){
         const v = ratio(r, k, metric, scope);
         let style;
@@ -173,22 +199,23 @@ function render(){
         else if(v<1){ style=`background:var(--neutral);color:var(--ink2)`; }
         else { const bi=band(v,scope); style=`background:var(${RAMP[bi]});color:${bi>=LIGHT_TEXT_FROM?'#fff':'#0b0b0b'}`; }
         // speedups sit near 1× on the smallest workloads: two decimals tell slower from even
-        h += `<td data-k="${r[1]}" style="${style}">${v.toFixed(mem ? 1 : 2)}×</td>`;
+        h += `<td style="${style}"><button data-k="${r[1]}" data-col="${k}" aria-label="${r[1]}, ${labels[k]}: ${v.toFixed(mem ? 1 : 2)} times ${mem?'memory ratio':'speedup'}" aria-describedby="tip">${v.toFixed(mem ? 1 : 2)}×</button></td>`;
       }
       h += "</tr>";
     }
+    h += '</tbody></table></section>';
   });
   document.getElementById('hm').innerHTML = h;
 
   // legend
   const ramp = document.getElementById('ramp');
   if(mem){
-    ramp.innerHTML = "FlowLog leaner&nbsp;" +
+    ramp.innerHTML = "Memory · FlowLog ÷ Soufflé · leaner&nbsp;" +
       MEMRAMP.map(r=>`<i style="background:var(${r})"></i>`).join("") +
-      "&nbsp;heavier <span style='color:var(--muted)'>(darker = more RAM saved; below 1× = leaner than Soufflé)</span>";
+      "&nbsp;heavier";
   } else {
     const labs = scope==='wall' ? ["1.5","2","2.5","3.5","4.5","4.5+"] : ["2","3","5","8","12","12+"];
-    ramp.innerHTML = "faster →&nbsp;" + RAMP.map((r,i)=>`<i style="background:var(${r})" title="${labs[i]}×"></i>`).join("");
+    ramp.innerHTML = "Speedup · Soufflé ÷ FlowLog · faster →&nbsp;" + RAMP.map((r,i)=>`<i style="background:var(${r})" title="${labs[i]}×"></i>`).join("");
   }
 }
 function setMetric(m){ metric=m; tTime.setAttribute('aria-pressed',m==='time'); tMem.setAttribute('aria-pressed',m==='mem'); render(); }
@@ -198,12 +225,11 @@ tMem.onclick=()=>setMetric('mem');
 sWall.onclick=()=>setScope('wall');
 sEngine.onclick=()=>setScope('engine');
 
-// hover tooltip: each engine's medians
+// Pointer, keyboard and touch access to each engine's measured medians.
 const tip=document.getElementById('tip'), hm=document.getElementById('hm');
 const ROW = {}; DATA.rows.forEach(r => ROW[r[1]] = r);
-hm.addEventListener('mousemove',e=>{
-  const td=e.target.closest('td[data-k]'); if(!td){tip.style.opacity=0;return;}
-  const r=ROW[td.dataset.k]; if(!r){tip.style.opacity=0;return;}
+function showTip(cell, x, y){
+  const r=ROW[cell.dataset.k]; if(!r)return;
   let b=`<b>${r[1]}</b> · <span class="k">${DATA.suites[r[0]]}</span>`;
   ["index","query"].forEach((k,i)=>{
     const p=r[2+i];
@@ -213,17 +239,35 @@ hm.addEventListener('mousemove',e=>{
   const rs=Math.max(r[2][R],r[3][R]), rf=Math.max(r[2][R+1],r[3][R+1]);
   b+=`<br><span class="th">peak RAM</span> Soufflé ${gib(rs)} GiB · FlowLog ${gib(rf)} GiB · ${(rf/rs).toFixed(2)}×`;
   tip.innerHTML=b; tip.style.opacity=1;
-  let x=e.clientX+14, y=e.clientY+14;
-  if(x+290>innerWidth)x=e.clientX-290; if(y+110>innerHeight)y=e.clientY-110;
-  tip.style.left=x+'px'; tip.style.top=y+'px';
+  const box=tip.getBoundingClientRect();
+  tip.style.left=Math.max(8,Math.min(x+14,innerWidth-box.width-8))+'px';
+  tip.style.top=Math.max(8,y+box.height+14>innerHeight ? y-box.height-14 : y+14)+'px';
+}
+hm.addEventListener('pointermove',e=>{
+  if(e.pointerType==='touch')return;
+  const cell=e.target.closest('button[data-k]');
+  if(cell)showTip(cell,e.clientX,e.clientY); else tip.style.opacity=0;
 });
-hm.addEventListener('mouseleave',()=>tip.style.opacity=0);
+function showFocusedTip(e){
+  const cell=e.target.closest('button[data-k]'); if(!cell)return;
+  const box=cell.getBoundingClientRect(); showTip(cell,box.left,box.bottom);
+}
+hm.addEventListener('focusin',showFocusedTip);
+hm.addEventListener('click',showFocusedTip);
+hm.addEventListener('pointerleave',()=>tip.style.opacity=0);
+hm.addEventListener('focusout',()=>tip.style.opacity=0);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')tip.style.opacity=0;});
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('button[data-k]'))tip.style.opacity=0;});
+window.addEventListener('scroll',()=>tip.style.opacity=0);
 
 // When embedded in the FlowLog site (same-origin iframe): mirror the site's
 // light/dark toggle, hide our own title/caption, and size the iframe to fit.
 (function(){
   const embedded = window.parent !== window;
-  if(embedded) document.querySelector('.wrap').classList.add('embedded');
+  if(embedded){
+    document.documentElement.classList.add('embedded');
+    document.querySelector('.wrap').classList.add('embedded');
+  }
   function sync(){
     try{
       const t = window.parent.document.documentElement.getAttribute('data-theme');
@@ -235,7 +279,8 @@ hm.addEventListener('mouseleave',()=>tip.style.opacity=0);
     try{ new MutationObserver(sync).observe(window.parent.document.documentElement,
       {attributes:true, attributeFilter:['data-theme']}); }catch(e){}
     const fit=()=>{ try{ const h=document.querySelector('.wrap').getBoundingClientRect().height; window.frameElement.style.height=Math.ceil(h)+6+'px'; }catch(e){} };
-    fit(); [120,400,900].forEach(t=>setTimeout(fit,t));
+    new ResizeObserver(fit).observe(document.querySelector('.wrap'));
+    fit();
     window.addEventListener('load', fit);
     window.addEventListener('resize', fit);
     document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>setTimeout(fit,0)));
@@ -244,3 +289,4 @@ hm.addEventListener('mouseleave',()=>tip.style.opacity=0);
 
 setScope('wall');
 </script>
+</html>

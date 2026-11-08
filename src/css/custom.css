@@ -627,3 +627,27 @@ var,
 .bench-stats { display: flex; gap: 26px; flex-wrap: wrap; margin: 22px 0 10px; }
 .bench-stats .n { font-size: 24px; font-weight: 700; letter-spacing: -.01em; }
 .bench-stats .l { font-size: 13px; color: var(--ifm-blockquote-color); margin-top: 2px; }
+
+/* CTADL: give the two workload families room to sit side by side. */
+.bench-ctadl { max-width: 1120px; }
+.bench-ctadl .bench-lede { max-width: 760px; }
+.bench-ctadl .bench-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 26px 0 18px;
+  padding: 22px 26px;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 14px;
+  background: var(--flowlog-highlight-bg);
+}
+.bench-ctadl .bench-stats > div + div {
+  border-left: 1px solid var(--ifm-toc-border-color);
+  padding-left: 26px;
+}
+.bench-ctadl .bench-stats .n { font-size: 30px; color: var(--flowlog-accent-blue); }
+.ctadl-chart { display: block; width: 100%; height: 980px; border: 0; }
+@media (max-width: 640px) {
+  .bench-ctadl .bench-stats { grid-template-columns: 1fr; padding: 18px 22px; gap: 16px; }
+  .bench-ctadl .bench-stats > div + div { border-left: 0; border-top: 1px solid var(--ifm-toc-border-color); padding: 14px 0 0; }
+}
