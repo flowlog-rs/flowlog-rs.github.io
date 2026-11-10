@@ -17,19 +17,19 @@ How fast <FL/> runs the DOOP Java points-to analyses, compared with Soufflé.
 
 <dl className="spec">
   <dt>Engines</dt>
-  <dd><FL/> vs Soufflé 2.5, run both with and without DOOP's hand-tuned join orders.</dd>
+  <dd><FL/> (compiled with <code>--str-intern</code>) vs Soufflé 2.5, run both with and without DOOP's hand-tuned join orders.</dd>
   <dt>Workload</dt>
   <dd>24 context-sensitive points-to analyses × 6 DaCapo Java programs (luindex, eclipse, batik, h2o, xalan, spring).</dd>
   <dt>Measured</dt>
-  <dd>Run time to fixpoint via <code>.printsize</code> (no output serialization) and peak memory (RSS), median of 3 runs.</dd>
+  <dd>Run time to fixpoint via <code>.printsize</code> (no output serialization) and peak memory (RSS). Median of 3 runs, or a single run when it takes 60 s or more. Each run is capped at 1000 s and 190 GB; past either, it counts as not finished. The first three analyses ran earlier, with median of 3 throughout and an 1800 s cap; none of their finished results took over 900 s.</dd>
   <dt>Platform</dt>
-  <dd>AMD EPYC 7763 (Milan), 32 cores / 64 threads, 503 GB RAM, facts on ext4. Both engines run at 32 threads.</dd>
+  <dd>AMD EPYC 7V13 (Milan), 24 cores, 216 GB RAM, facts on ext4. Both engines run at 16 threads.</dd>
 </dl>
 
 <div className="bench-stats">
-  <div><div className="n">up to 5.7×</div><div className="l">faster than hand-tuned Soufflé</div></div>
-  <div><div className="n">118 / 118</div><div className="l">faster, never slower</div></div>
-  <div><div className="n">~10% less</div><div className="l">peak memory (geomean)</div></div>
+  <div><div className="n">up to 5.8×</div><div className="l">faster than hand-tuned Soufflé</div></div>
+  <div><div className="n">102 / 102</div><div className="l">faster, never slower</div></div>
+  <div><div className="n">~24% less</div><div className="l">peak memory (geomean)</div></div>
 </div>
 
 <iframe
@@ -37,6 +37,10 @@ How fast <FL/> runs the DOOP Java points-to analyses, compared with Soufflé.
   title="FlowLog vs Soufflé — DOOP points-to speedup heatmap"
   style={{width:'100%',height:'1000px',border:0,borderRadius:'12px',marginTop:'6px'}}
 />
+
+<p style={{marginTop:'16px',fontSize:'14px',color:'var(--ifm-blockquote-color)'}}>
+The two 2-call-site-sensitive analyses need more memory than this machine has: <FL/> and Soufflé without hand-tuning hit the 190 GB cap, and hand-tuned Soufflé hit the 1000 s limit. In an earlier 32-thread sweep on a 503 GB machine with an 1800 s limit, <FL/> finished both on luindex, eclipse and xalan (471–946 s, 357–419 GB) and Soufflé did not. That sweep also had <FL/> finishing 2-object-sensitive+2-heap on spring (1277 s) and selective-2-object-sensitive+heap on h2o (904 s); here both hit the 1000 s limit. Soufflé finished neither in either sweep.
+</p>
 
 <p style={{marginTop:'16px',fontSize:'14px',color:'var(--ifm-blockquote-color)'}}>
 Reproduce with <code>verify/bench/time.sh</code> in <a href="https://github.com/flowlog-rs/doop-flowlog">doop-flowlog</a>.
